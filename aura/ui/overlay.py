@@ -1,6 +1,6 @@
 """
 aura.ui.overlay - Stream-Invisible Ghost Visual Telemetry Overlay
-Renders real-time biomimetic cursor trails, target lock crosshairs, and click ripples at 60 FPS.
+Renders real-time subtle glass cursor trails, target lock crosshairs, and click ripples at 60 FPS.
 Passes through all mouse input (WA_TransparentForMouseEvents) and shielded via WDA_EXCLUDEFROMCAPTURE.
 """
 
@@ -15,7 +15,7 @@ class AuraOverlayWindow(QWidget):
     def __init__(self, mode: str = "mach"):
         super().__init__()
         self.mode = mode
-        self.trail = deque(maxlen=24)
+        self.trail = deque(maxlen=20)
         self.click_ripples = []
         self.target_crosshair = None
 
@@ -34,7 +34,6 @@ class AuraOverlayWindow(QWidget):
 
         self._apply_stealth()
 
-        # 60 FPS update timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
         self.timer.start(16)
@@ -57,7 +56,7 @@ class AuraOverlayWindow(QWidget):
         self.trail.append((x, y, time.time()))
 
     def trigger_click(self, x: float, y: float):
-        self.click_ripples.append({"x": x, "y": y, "radius": 4.0, "alpha": 255})
+        self.click_ripples.append({"x": x, "y": y, "radius": 4.0, "alpha": 200})
 
     def lock_target(self, x: float, y: float):
         self.target_crosshair = (x, y)
@@ -69,16 +68,14 @@ class AuraOverlayWindow(QWidget):
 
     def _tick(self):
         now = time.time()
-        # Expire old trail points (> 0.4s)
-        while self.trail and (now - self.trail[0][2]) > 0.4:
+        while self.trail and (now - self.trail[0][2]) > 0.35:
             self.trail.popleft()
 
-        # Update ripples
         active_ripples = []
         for r in self.click_ripples:
-            r["radius"] += 3.5
-            r["alpha"] -= 18
-            if r["alpha"] > 0 and r["radius"] < 65:
+            r["radius"] += 3.0
+            r["alpha"] -= 16
+            if r["alpha"] > 0 and r["radius"] < 50:
                 active_ripples.append(r)
         self.click_ripples = active_ripples
 
@@ -92,37 +89,34 @@ class AuraOverlayWindow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        is_mach = (self.mode == "mach")
-        base_color = QColor(0, 240, 255) if is_mach else QColor(168, 85, 247)
-
-        # 1. Render glowing cursor trail
+        # 1. Subtle frosted white glass trail
         if len(self.trail) > 1:
             pts = list(self.trail)
             for i in range(len(pts) - 1):
                 x1, y1, _ = pts[i]
                 x2, y2, _ = pts[i + 1]
                 progress = (i + 1) / len(pts)
-                alpha = int(220 * progress)
-                color = QColor(base_color.red(), base_color.green(), base_color.blue(), alpha)
-                pen = QPen(color, 2.5 + progress * 2.0, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+                alpha = int(140 * progress)
+                color = QColor(255, 255, 255, alpha)
+                pen = QPen(color, 2.0 + progress * 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
                 painter.setPen(pen)
                 painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        # 2. Render click ripples
+        # 2. Subtle frosted glass ripples
         for r in self.click_ripples:
-            color = QColor(base_color.red(), base_color.green(), base_color.blue(), int(r["alpha"]))
-            painter.setPen(QPen(color, 2.0))
+            color = QColor(255, 255, 255, int(r["alpha"]))
+            painter.setPen(QPen(color, 1.5))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             rad = r["radius"]
             painter.drawEllipse(QRectF(r["x"] - rad, r["y"] - rad, rad * 2, rad * 2))
 
-        # 3. Render crosshair if locked
+        # 3. Minimalist crosshair
         if self.target_crosshair:
             tx, ty = self.target_crosshair
-            pen = QPen(QColor(245, 158, 11, 200), 1.5)
+            pen = QPen(QColor(255, 255, 255, 180), 1.0)
             painter.setPen(pen)
-            painter.drawEllipse(QRectF(tx - 12, ty - 12, 24, 24))
-            painter.drawLine(int(tx - 16), int(ty), int(tx + 16), int(ty))
-            painter.drawLine(int(tx), int(ty - 16), int(tx), int(ty + 16))
+            painter.drawEllipse(QRectF(tx - 10, ty - 10, 20, 20))
+            painter.drawLine(int(tx - 14), int(ty), int(tx + 14), int(ty))
+            painter.drawLine(int(tx), int(ty - 14), int(tx), int(ty + 14))
 
         painter.end()

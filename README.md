@@ -10,7 +10,7 @@
 
 ---
 
-## ⚡ Architecture: The Harness + Agent Model
+## Architecture: The Harness + Agent Model
 
 AURA decouples raw OS interaction into a protected **Execution & Safety Harness** and a cognitive **Agent Kernel**:
 
@@ -30,8 +30,8 @@ flowchart TD
         Tier2["Autonomous ReAct Computer-Use\n(Plan -> Act -> Observe -> Verify)"]
     end
 
-    subgraph UI ["Cyber-HUD & User Experience"]
-        Dock["Bottom Cyber-Dock (Expands Upwards)"]
+    subgraph UI ["Distraction-Free Aero Glass UI"]
+        Dock["Aero Glassmorphic Dock (Frosted Smoke · Specular Bevel)"]
         Overlay["Ghost Visual Telemetry (Click Ripples & Crosshairs)"]
         Tray["Windows System Tray Resident"]
     end
@@ -50,57 +50,64 @@ flowchart TD
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-### 1. 🛡️ Stream & Recording Stealth
+### 1. Minimalist Aero Glassmorphic UI
+A genuine frosted smoke glass dock engineered using native Win32 DWM composition blur (`ACCENT_ENABLE_ACRYLICBLURBEHIND` / Windows 11 `DWMWA_SYSTEMBACKDROP_TYPE` Acrylic):
+* **Distraction-Free**: Zero cartoon emojis, zero robotic greetings, zero telemetry clutter.
+* **Aero Glass Aesthetics**: Translucent smoke glass, specular top edge highlights, and subtle outer rims.
+* **Instant Typewriter Stream**: Smooth 60 FPS text rendering.
+
+### 2. Stream & Recording Stealth
 AURA enforces native Win32 `SetWindowDisplayAffinity(hwnd, 0x11)` (`WDA_EXCLUDEFROMCAPTURE`) on both the CyberDock and the transparent telemetry overlay.
 * **100% Invisible** on OBS Studio, Discord Screen Share, Zoom, Microsoft Teams, and screenshot tools.
 * The assistant is rendered strictly on the local monitor's desktop compositing plane without leaking to streams or recordings.
 
-### 2. ⚡ Sub-Millisecond Fast-Path Kernel (< 0.05ms)
+### 3. Sub-Millisecond Fast-Path Kernel (< 0.05ms)
 Not every desktop instruction needs an LLM. AURA features a zero-regex layered dispatcher:
 * **Instant Math Engine**: Computes expressions and percentages (`what is 15% of 850` $\to$ `127.5`) in `< 0.01ms`.
 * **Platform Turbo Navigators**: Deep-links queries into Instagram (`ISWF video`), LeetCode (`two sum`), GitHub, YouTube, Reddit, and Twitter in `< 0.05ms`.
 * **System Hardware Controls**: Real-time volume, mute, display locking, theme shifting, and workspace configuration.
 
-### 3. 🧠 Grounded Vision & Context Co-Pilot (1.2s Latency)
+### 4. Grounded Vision & Context Co-Pilot (1.2s Latency)
 * Powered by Google's latest **Gemini 3.5 Flash Lite** with session connection pooling.
 * Ingests live environment context: focused application (`VS Code`, `Terminal`, `Godot`, `Chrome`), active window title, and clipboard stack traces.
 * Triggers automatic screen ROI captures on visual queries (`"explain this error"`, `"what is on my screen"`).
 
-### 4. 🔒 Complete Privacy & AI Anonymization
+### 5. Complete Privacy & AI Anonymization
 All outbound prompts pass through an active PII sanitizer:
 * User paths (`C:\Users\username\...`) are stripped to `~/...`.
 * IP addresses, personal credentials, and API secret tokens are masked prior to transmission.
 
-### 5. 🤖 Autonomous Multi-Step Computer-Use (ReAct Engine)
+### 6. Autonomous Multi-Step Computer-Use (ReAct Engine)
 Compound instructions (e.g. `"open chrome, navigate to github and search repo X"`) trigger the autonomous execution loop:
 * Synthesizes hardware mouse glide trajectories using cubic Bézier curves (preventing robotic bot detection).
 * Synthesizes keystrokes via microsecond Win32 `SendInput`.
 * Resolves UI elements via accessibility tree traversal and visual landmarks.
 
-### 6. 🛑 Hardware-Level Safety Circuit Breakers
+### 7. Hardware-Level Safety Circuit Breakers
 * **`Esc` Panic Switch**: Dedicated 60Hz watchdog thread intercepts `VK_ESCAPE` to kill running autonomous loops in `< 10ms`.
 * **Mouse Corner Flick**: Shaking or moving the cursor to the top-left screen corner instantly trips the circuit breaker.
 * **Action Step Budget**: Prevents infinite loops by terminating tasks if execution exceeds step limits.
 
 ---
 
-## 📊 Benchmark & Architectural Comparison
+## Benchmark & Architectural Comparison
 
 | Dimension | AURA 2.0 | Ghost App | Open Interpreter | Claude Computer Use | Flow Launcher |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Stream / OBS Stealth** | ✅ Native (0x11) | ⚠️ Partial | ❌ No | ❌ No | ❌ No |
+| **Stream / OBS Stealth** | Native (0x11) | Partial | No | No | No |
+| **Aero Glass Interface** | Win32 DWM Acrylic | Solid Overlay | Terminal CLI | API Headless | Solid Qt |
 | **Fast-Path Latency** | **< 0.05ms** | ~200ms | ~500ms | ~1500ms | < 1ms |
 | **Cognitive Latency** | **1.2s - 1.8s** | 2.5s - 5s | 3s - 8s | 3s - 6s | N/A (Search only) |
-| **Computer-Use Actuation** | ✅ Win32 SendInput | ✅ Custom | ✅ PyAutoGUI | ✅ API Container | ❌ Launch only |
-| **Zero-Keylog Safety** | ✅ RegisterHotKey | ❌ Hooks | ❌ N/A | ❌ N/A | ⚠️ Mixed |
-| **PII Anonymization** | ✅ Automatic | ❌ No | ❌ No | ❌ No | N/A |
-| **Desktop Form Factor** | Bottom Cyber-Dock | Floating Overlay | Terminal CLI | API Headless | Center Bar |
+| **Computer-Use Actuation** | Win32 SendInput | Custom | PyAutoGUI | API Container | Launch only |
+| **Zero-Keylog Safety** | RegisterHotKey | Hooks | N/A | N/A | Mixed |
+| **PII Anonymization** | Automatic | No | No | No | N/A |
+| **Desktop Form Factor** | Aero Bottom Dock | Floating Overlay | Terminal CLI | API Headless | Center Bar |
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Prerequisites
 * Windows 10 or Windows 11 (64-bit)
@@ -108,7 +115,7 @@ Compound instructions (e.g. `"open chrome, navigate to github and search repo X"
 
 ### 1. Installation
 ```powershell
-git clone https://github.com/arpit/aura-cognitive-harness.git
+git clone https://github.com/Psychic-arpit/aura-cognitive-harness.git
 cd aura-cognitive-harness
 pip install -e .
 ```

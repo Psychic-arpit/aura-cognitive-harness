@@ -1,6 +1,7 @@
 """
-aura.agent.kernel - Master Contextual AI Perception Kernel
+aura.agent.kernel - Contextual AI Perception Kernel
 Synthesizes live OS state, active editor code, and screen captures into a zero-leak contextual prompt.
+Clean, direct, zero meta-slop or searcher behavior.
 """
 
 import time
@@ -18,46 +19,44 @@ class OmniKernel:
     def process(self, query: str) -> Dict[str, Any]:
         q = query.strip()
         if not q:
-            return {"title": "", "source": "Aura AI", "answer": "Ready for your instruction.", "elapsed": 0.0}
+            return {"title": "", "source": "Response", "answer": "Ready for input.", "elapsed": 0.0}
 
         t0 = time.time()
         ctx = PERCEPTION.get_context_snapshot()
         fg = ctx["window"]
         clip = ctx["clipboard"]
 
-        # Determine if visual screen grounding is required
         q_low = q.lower()
         image_bytes: Optional[bytes] = None
         if any(trig in q_low for trig in self._visual_triggers) or q_low.startswith("explain:"):
             image_bytes = PERCEPTION.capture_screen_bytes()
 
         prompt = (
-            f"You are Aura, an elite cybernetic desktop AI companion.\n"
-            f"Active Environment Context:\n"
-            f"- Foreground Application: {fg['process']} ('{fg['title'][:90]}')\n"
+            f"You are a high-speed, direct developer desktop co-pilot.\n"
+            f"Environment Context:\n"
+            f"- Focused Window: {fg['process']} ('{fg['title'][:90]}')\n"
             f"- Category: {fg['category']}\n"
         )
         if clip:
-            prompt += f"- Recent Clipboard Content:\n```{clip[:750]}```\n"
+            prompt += f"- Active Clipboard:\n```{clip[:750]}```\n"
 
         if image_bytes:
-            prompt += "- Visual State: Live screen capture attached.\n"
+            prompt += "- Visual Input: Live screen capture attached.\n"
 
         prompt += (
-            f"\nUser Instruction: {q}\n\n"
+            f"\nInstruction: {q}\n\n"
             f"Directives:\n"
-            f"- Deliver direct, concise, copyable code or solutions without meta-explanations.\n"
-            f"- Ground your answer in what the user is currently working on in {fg['process']}.\n"
-            f"- Never act like a search engine or generic encyclopedia; you are a flagship desktop co-pilot."
+            f"- Provide exact, copyable code or solutions without meta-narrative.\n"
+            f"- Ground your answer in what the user is working on in {fg['process']}.\n"
+            f"- Do not use greeting fluff or unnecessary apologies; be surgically focused."
         )
 
         ans = CLIENT.generate(prompt, image_bytes=image_bytes)
         elapsed = round(time.time() - t0, 2)
 
-        source = "Aura Vision AI" if image_bytes else "Aura Context AI"
         return {
             "title": q[:36],
-            "source": source,
+            "source": "Response",
             "answer": ans.strip(),
             "elapsed": elapsed
         }

@@ -1,6 +1,7 @@
 """
 aura.agent.planner - Multi-Step Autonomous Computer-Use ReAct Loop
 Executes complex human PC goals step-by-step with real-time observation, actuation, and safety checks.
+Clean telemetry without emoji clutter.
 """
 
 import re
@@ -24,20 +25,20 @@ class AutonomousPlanner:
                 url = params.get("url", "")
                 if not url.startswith("http"):
                     url = f"https://{url}"
-                log_cb(f"🚀 Navigating: {url[:36]}")
+                log_cb(f"Navigating to {url[:36]}")
                 webbrowser.open(url)
                 return f"Opened {url}."
 
             elif action == "launch_app":
                 app = params.get("app_name", "")
-                log_cb(f"🚀 Launching app: {app}")
+                log_cb(f"Launching {app}")
                 import subprocess
                 subprocess.Popen(app, shell=True)
                 return f"Launched {app}."
 
             elif action == "click_ui":
                 target = params.get("target_description", "")
-                log_cb(f"🖱️ Targeting: '{target}'")
+                log_cb(f"Clicking {target}")
                 pos = UIA.resolve_target(target)
                 if pos:
                     cur_pos = ACTUATION.get_cursor_pos()
@@ -48,13 +49,13 @@ class AutonomousPlanner:
 
             elif action == "type_text":
                 text = params.get("text", "")
-                log_cb(f"⌨️ Typing: '{text[:24]}'")
+                log_cb(f"Typing '{text[:24]}'")
                 ACTUATION.fast_type(text)
                 return f"Typed '{text}'."
 
             elif action == "press_key":
                 key = params.get("key", "enter")
-                log_cb(f"⌨️ Pressing key: {key}")
+                log_cb(f"Pressing {key}")
                 ACTUATION.fast_press(key)
                 return f"Pressed {key}."
 
@@ -64,8 +65,8 @@ class AutonomousPlanner:
                 return f"Waited {secs}s."
 
             elif action == "finish":
-                msg = params.get("message", "Goal accomplished.")
-                log_cb(f"✅ {msg}")
+                msg = params.get("message", "Task completed.")
+                log_cb(msg)
                 return "DONE"
 
             return f"Unknown action: {action}"
@@ -91,7 +92,6 @@ class AutonomousPlanner:
             except Exception:
                 pass
 
-        # Heuristic extraction
         resp_low = response.lower()
         if "http" in resp_low or "goto_url" in resp_low:
             u = re.search(r"https?://[^\s\"')]+", response)
@@ -110,10 +110,10 @@ class AutonomousPlanner:
 
     def execute_goal(self, goal: str, log_cb: Callable[[str], None]) -> str:
         SAFETY.activate(step_budget=self.max_steps)
-        log_cb(f"🧠 Autopilot: '{goal[:32]}'")
+        log_cb(f"Running: {goal[:32]}")
 
         system_prompt = (
-            "You are Aura's computer-use execution agent.\n"
+            "You are a computer-use execution agent.\n"
             "Tools:\n"
             "1. goto_url(url) - Navigate browser directly\n"
             "2. launch_app(app_name) - Open Windows app\n"

@@ -1,6 +1,7 @@
 """
 aura.agent.router - Zero-Regex-Fragility Semantic Intent Dispatcher
 Resolves OS primitives, instant math, turbo platform navigators, and autonomous goals in < 0.05ms.
+Minimalist, distraction-free categorization without emoji decoration.
 """
 
 import re
@@ -130,9 +131,6 @@ class SemanticRouter:
             mode = "dark" if "dark" in t_low or "obsidian" in t_low else "light"
             return Intent(type="system_control", target=f"theme_{mode}")
 
-        if t_low in ["mach", "bio", "switch mode", ":mach", ":bio"]:
-            return Intent(type="switch_mode", target="biomimetic" if "bio" in t_low else "mach")
-
         # 2. Instant Math (< 0.01ms)
         math_res = self._eval_math(t)
         if math_res is not None:
@@ -159,21 +157,21 @@ class SemanticRouter:
         # 6. Contextual AI Vision & Reasoning
         return Intent(type="context_ai", target=t)
 
-    def get_preview(self, text: str) -> Tuple[str, str]:
+    def get_preview(self, text: str) -> str:
         t = text.strip()
         if not t:
-            return "⚡ AURA PILOT", "#10B981"
+            return ""
 
         intent = self.route(t)
         mapping = {
-            "turbo_nav": ("🚀 TURBO NAV", "#3B82F6"),
-            "autonomous_goal": ("🧠 AUTONOMOUS AGENT", "#8B5CF6"),
-            "app_launch": (f"🚀 LAUNCH {intent.target.upper()[:12]}", "#00F0FF"),
-            "system_control": (f"⚙️ SYSTEM ({intent.target.upper()[:10]})", "#F59E0B"),
-            "math_eval": (f"= {intent.target}", "#10B981"),
-            "clean_temp": ("🧹 CLEAN TEMP", "#10B981"),
-            "context_ai": ("🧠 CONTEXT AI", "#00F0FF")
+            "turbo_nav": "Navigate",
+            "autonomous_goal": "Autopilot",
+            "app_launch": f"Launch {intent.target[:14]}",
+            "system_control": f"System ({intent.target[:10]})",
+            "math_eval": f"= {intent.target}",
+            "clean_temp": "Clean Cache",
+            "context_ai": "Ask"
         }
-        return mapping.get(intent.type, ("⚡ AURA PILOT", "#10B981"))
+        return mapping.get(intent.type, "Run")
 
 ROUTER = SemanticRouter()
