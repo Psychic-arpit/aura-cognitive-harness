@@ -1,0 +1,26 @@
+# Secrets & Local Config
+brain/config.json
+config/settings.json
+*.env
+*.key
+*.token
+
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Scratch & Temporary Outputs
+scratch/
+scratch_*.py
+*.png
+*.lnk
+.pytest_cache/

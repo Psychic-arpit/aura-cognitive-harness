@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aura-cognitive-harness"
+version = "2.0.0"
+description = "Autonomous Desktop Cognitive Agent & Stream-Stealth Execution Harness for Windows"
+readme = "README.md"
+authors = [
+    { name = "Arpit", email = "arpit@fable.ai" }
+]
+license = { text = "MIT" }
+keywords = [
+    "ai-agent",
+    "computer-use",
+    "desktop-copilot",
+    "stealth",
+    "gemini",
+    "fast-path",
+    "win32",
+    "uiautomation"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Operating System",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14"
+]
+dependencies = [
+    "PyQt6>=6.5.0",
+    "requests>=2.30.0",
+    "pywin32>=306",
+    "mss>=9.0.0"
+]
+
+[project.scripts]
+aura = "aura.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aura*"]
