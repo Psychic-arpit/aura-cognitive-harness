@@ -70,10 +70,13 @@ user32.SendInput.restype = wintypes.UINT
 VK_MAP = {
     "enter": 0x0D, "return": 0x0D,
     "tab": 0x09, "esc": 0x1B, "escape": 0x1B,
-    "space": 0x20, "backspace": 0x08,
+    "space": 0x20, "backspace": 0x08, "delete": 0x2E, "del": 0x2E,
     "up": 0x26, "down": 0x28, "left": 0x25, "right": 0x27,
     "home": 0x24, "end": 0x23, "pageup": 0x21, "pagedown": 0x22,
-    "ctrl": 0x11, "shift": 0x10, "alt": 0x12, "win": 0x5B
+    "ctrl": 0x11, "shift": 0x10, "alt": 0x12, "win": 0x5B,
+    "volumemute": 0xAD, "volumedown": 0xAE, "volumeup": 0xAF,
+    "f1": 0x70, "f2": 0x71, "f3": 0x72, "f4": 0x73, "f5": 0x74, "f6": 0x75,
+    "f7": 0x76, "f8": 0x77, "f9": 0x78, "f10": 0x79, "f11": 0x7A, "f12": 0x7B
 }
 
 class ActuationHarness:
@@ -102,6 +105,14 @@ class ActuationHarness:
         time.sleep(0.03)
         user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(INPUT))
 
+    def double_click(self, x: Optional[int] = None, y: Optional[int] = None):
+        self.click(x, y, button="left")
+        time.sleep(0.05)
+        self.click(x, y, button="left")
+
+    def right_click(self, x: Optional[int] = None, y: Optional[int] = None):
+        self.click(x, y, button="right")
+
     def mouse_down(self, button: str = "left"):
         flag = MOUSEEVENTF_LEFTDOWN if button == "left" else MOUSEEVENTF_RIGHTDOWN
         inp = INPUT(type=INPUT_MOUSE)
@@ -113,6 +124,17 @@ class ActuationHarness:
         inp = INPUT(type=INPUT_MOUSE)
         inp.union.mi.dwFlags = flag
         user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+
+    def drag_cursor(self, start: Tuple[int, int], target: Tuple[int, int], duration: float = 0.45, button: str = "left", telemetry_cb: Optional[Callable[[float, float], None]] = None):
+        """Drags mouse with active button pressed from start to target coordinates along smooth Bezier arc."""
+        self.set_cursor_pos(start[0], start[1])
+        time.sleep(0.05)
+        self.mouse_down(button)
+        time.sleep(0.05)
+        self.glide_cursor(start, target, duration=duration, telemetry_cb=telemetry_cb)
+        time.sleep(0.05)
+        self.mouse_up(button)
+        time.sleep(0.05)
 
     def glide_cursor(self, start: Tuple[int, int], target: Tuple[int, int], duration: float = 0.35, telemetry_cb: Optional[Callable[[float, float], None]] = None):
         """Glides cursor along a smooth cubic Bezier arc with human-like acceleration."""
@@ -187,5 +209,32 @@ class ActuationHarness:
         inp.union.mi.dwFlags = MOUSEEVENTF_WHEEL
         inp.union.mi.mouseData = clicks * 120
         user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(INPUT))
+
+    def get_screen_size(self) -> Tuple[int, int]:
+        return user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+    def move_resize_window(self, hwnd: int, x: int, y: int, w: int, h: int):
+        """Moves and resizes a Win32 HWND safely."""
+        try:
+            if user32.IsWindow(hwnd):
+                SWP_NOZORDER = 0x0004
+                SWP_SHOWWINDOW = 0x0040
+                user32.SetWindowPos(hwnd, 0, int(x), int(y), int(w), int(h), SWP_NOZORDER | SWP_SHOWWINDOW)
+        except Exception:
+            pass
+
+    def tile_window(self, hwnd: int, side: str):
+        """Tiles window to left half, right half, or maximized."""
+        sw, sh = self.get_screen_size()
+        # Leave 40px for bottom taskbar
+        usable_h = max(sh - 48, 600)
+        if side == "left":
+            self.move_resize_window(hwnd, 0, 0, sw // 2, usable_h)
+        elif side == "right":
+            self.move_resize_window(hwnd, sw // 2, 0, sw // 2, usable_h)
+        elif side == "maximize":
+            user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+        elif side == "restore":
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
 
 ACTUATION = ActuationHarness()

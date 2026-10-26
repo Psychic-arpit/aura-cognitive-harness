@@ -81,7 +81,7 @@ class TaskWorker(QObject):
             # 3. Direct Platform Deep Navigation
             elif it == "turbo_nav":
                 url = self.intent.target
-                self.progress.emit(f"🚀 Launching: {url[:36]}...")
+                self.progress.emit(f"Launching: {url[:36]}...")
                 webbrowser.open(url)
                 res_msg = "Navigated [OK]"
 
@@ -91,19 +91,62 @@ class TaskWorker(QObject):
                 result = PLANNER.execute_goal(self.intent.target, lambda msg: self.progress.emit(msg))
                 res_msg = f"Autopilot Done: {result}"
 
-            # 5. Native Application Launch
+            # 5. Fast Terminal Shell Execution (> command)
+            elif it == "shell_exec":
+                cmd = self.intent.target
+                self.progress.emit(f"Running: {cmd[:32]}")
+                import time
+                t0 = time.time()
+                proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
+                elapsed = time.time() - t0
+                out = (proc.stdout or proc.stderr or "Executed with zero output.").strip()
+                data = {
+                    "title": f"Terminal: {cmd[:28]}",
+                    "source": "Terminal Execution",
+                    "answer": f"```text\n{out}\n```",
+                    "elapsed": elapsed
+                }
+                self.ai_answer.emit(data)
+                res_msg = f"Terminal exited with code {proc.returncode}"
+
+            # 6. TagRush QA & Dual Client Environment
+            elif it == "tagrush_qa":
+                self.progress.emit("Launching TagRush QA Dual-Client...")
+                msg = PLANNER.run_tagrush_qa(lambda m: self.progress.emit(m))
+                data = {
+                    "title": "TagRush QA Playtest",
+                    "source": "Game QA Automation",
+                    "answer": f"### TagRush QA Environment\n\n• **Status**: {msg}\n• **Layout**: Left (Host 960x1040), Right (Peer 960x1040)\n• **Failsafe**: Press `Esc` anytime to abort.",
+                    "elapsed": 1.2
+                }
+                self.ai_answer.emit(data)
+                res_msg = "TagRush QA Ready [OK]"
+
+            # 7. MS Paint Shape Rendering Automation
+            elif it == "paint_draw":
+                self.progress.emit("Rendering Shape in MS Paint...")
+                msg = PLANNER.run_paint_recipe("rectangle", lambda m: self.progress.emit(m))
+                data = {
+                    "title": "MS Paint Automation",
+                    "source": "Actuation Harness",
+                    "answer": f"### Canvas Render Complete\n\n• **Action**: {msg}\n• **Physics**: Cubic Bezier glide and hardware mouse drag.",
+                    "elapsed": 1.5
+                }
+                self.ai_answer.emit(data)
+                res_msg = "Paint Render Complete [OK]"
+
+            # 8. Native Application Launch
             elif it == "app_launch":
                 target = self.intent.target
                 self.progress.emit(f"Launching {target}...")
                 cur_x, cur_y = ACTUATION.get_cursor_pos()
-                sw = ctypes.windll.user32.GetSystemMetrics(0)
-                sh = ctypes.windll.user32.GetSystemMetrics(1)
+                sw, sh = ACTUATION.get_screen_size()
                 ACTUATION.glide_cursor((cur_x, cur_y), (sw // 2, sh // 2), duration=0.25, telemetry_cb=lambda x, y: self.telemetry.emit(x, y))
                 self.click.emit(sw // 2, sh // 2)
                 subprocess.Popen(target, shell=True)
                 res_msg = f"Launched {target} [OK]"
 
-            # 6. System & Hardware Controls
+            # 9. System & Hardware Controls
             elif it == "system_control":
                 action = self.intent.target
                 self.progress.emit(f"System: '{action}'...")
@@ -117,19 +160,41 @@ class TaskWorker(QObject):
                     ctypes.windll.user32.LockWorkStation()
                 elif action in ("show desktop", "minimize all"):
                     ACTUATION.fast_press("win+d")
+                elif action == "taskmgr":
+                    subprocess.Popen("taskmgr", shell=True)
                 res_msg = f"System action {action} [OK]"
 
-            # 7. Clean Temp Cache
+            # 10. Clean Temp Cache
             elif it == "clean_temp":
                 self.progress.emit("Cleaning temporary cache...")
                 import tempfile
                 temp_dir = tempfile.gettempdir()
-                res_msg = f"Temp cache inspected: {os.path.basename(temp_dir)} [OK]"
+                bytes_freed = 0
+                files_freed = 0
+                for root, dirs, files in os.walk(temp_dir):
+                    for f in files:
+                        p = os.path.join(root, f)
+                        try:
+                            sz = os.path.getsize(p)
+                            os.remove(p)
+                            bytes_freed += sz
+                            files_freed += 1
+                        except Exception:
+                            pass
+                mb_freed = bytes_freed / (1024 * 1024)
+                data = {
+                    "title": "Clean Cache",
+                    "source": "System Maintenance",
+                    "answer": f"### Cache Purged\n\n• **Reclaimed Space**: **{mb_freed:.1f} MB**\n• **Files Removed**: {files_freed} temporary files\n• **Directory**: `{temp_dir}`",
+                    "elapsed": 0.2
+                }
+                self.ai_answer.emit(data)
+                res_msg = f"Cleaned {mb_freed:.1f} MB [OK]"
 
-            # 8. Set API Key
+            # 11. Set API Key
             elif it == "set_api_key":
                 CLIENT.set_key(self.intent.target)
-                self.progress.emit("Gemini AI Brain Unlocked!")
+                self.progress.emit("Gemini AI Brain Unlocked")
                 res_msg = "API Key saved successfully [OK]"
 
         except Exception as e:
@@ -180,7 +245,7 @@ class AuraApp(QObject):
         self.dock.show()
 
         print("\n" + "=" * 62)
-        print("⚡ AURA: AUTONOMOUS DESKTOP AGENT & EXECUTION HARNESS")
+        print("AURA: AUTONOMOUS DESKTOP AGENT & EXECUTION HARNESS")
         print("  Placement: Bottom desktop dock (Alt+C / Ctrl+Alt+Space)")
         print("  Stealth: 100% Invisible to screen recorders (0x11)")
         print("  Harness: Hardware SendInput + UIAutomation + Safety Circuit")
@@ -192,8 +257,8 @@ class AuraApp(QObject):
         pix.fill(QColor(0, 0, 0, 0))
         painter = QPainter(pix)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor(0, 240, 255))
-        painter.setPen(QColor(255, 255, 255, 200))
+        painter.setBrush(QColor(255, 255, 255, 220))
+        painter.setPen(QColor(255, 255, 255, 120))
         painter.drawEllipse(2, 2, 12, 12)
         painter.end()
 
@@ -202,22 +267,22 @@ class AuraApp(QObject):
         self.tray.activated.connect(self._on_tray_activated)
 
         menu = QMenu()
-        act_open = menu.addAction("Toggle Cyber-Dock (Alt+C)")
+        act_open = menu.addAction("Toggle Aero Dock (Alt+C)")
         act_open.triggered.connect(self._toggle_assistant)
 
         menu.addSeparator()
-        act_ig = menu.addAction("Instagram Search")
-        act_ig.triggered.connect(lambda: self.on_command("open instagram"))
+        act_qa = menu.addAction("TagRush QA Dual Client")
+        act_qa.triggered.connect(lambda: self.on_command("test tagrush"))
 
-        act_yt = menu.addAction("YouTube Shorts")
-        act_yt.triggered.connect(lambda: self.on_command("play youtube shorts"))
+        act_paint = menu.addAction("Draw in MS Paint")
+        act_paint.triggered.connect(lambda: self.on_command("draw rectangle in paint"))
+
+        act_clean = menu.addAction("Clean Temp Cache")
+        act_clean.triggered.connect(lambda: self.on_command("clean temp"))
 
         menu.addSeparator()
         act_hide = menu.addAction("Hide to Tray")
         act_hide.triggered.connect(self.dock.hide_to_tray)
-
-        act_mode = menu.addAction("Switch Mode (Mach / Bio)")
-        act_mode.triggered.connect(self.dock._toggle_mode)
 
         menu.addSeparator()
         act_exit = menu.addAction("Exit Aura")

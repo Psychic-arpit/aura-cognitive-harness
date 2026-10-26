@@ -45,9 +45,36 @@ def test_compound_goal_detection():
     assert intent.type == "autonomous_goal", f"Expected autonomous_goal, got {intent.type}"
     print(f"  [PASS] Compound Goal: '{query}' -> {intent.type}")
 
+def test_new_execution_routes():
+    # Shell execution
+    i_shell = ROUTER.route("> git status")
+    assert i_shell.type == "shell_exec" and i_shell.target == "git status"
+    print("  [PASS] Shell Route: '> git status' -> shell_exec")
+
+    # TagRush QA
+    i_tr = ROUTER.route("test tagrush")
+    assert i_tr.type == "tagrush_qa"
+    print("  [PASS] TagRush Route: 'test tagrush' -> tagrush_qa")
+
+    # Paint Draw
+    i_paint = ROUTER.route("draw rectangle in paint")
+    assert i_paint.type == "paint_draw"
+    print("  [PASS] Paint Route: 'draw rectangle in paint' -> paint_draw")
+
+    # Clean Temp
+    i_clean = ROUTER.route("clean temp")
+    assert i_clean.type == "clean_temp"
+    print("  [PASS] Clean Route: 'clean temp' -> clean_temp")
+
+    # App Aliases
+    i_calc = ROUTER.route("calc")
+    assert i_calc.type == "app_launch" and i_calc.target == "calc"
+    print("  [PASS] Alias Route: 'calc' -> app_launch")
+
 if __name__ == "__main__":
     print("Running Fast-Path & Semantic Router Tests...")
     test_instant_math()
     test_turbo_nav()
     test_compound_goal_detection()
+    test_new_execution_routes()
     print("ALL FAST-PATH TESTS PASSED [100%]\n")

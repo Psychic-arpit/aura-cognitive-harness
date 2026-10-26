@@ -16,6 +16,23 @@ class Intent:
     target: str = ""
     extra: Optional[Dict[str, Any]] = None
 
+APP_ALIASES = {
+    "paint": "mspaint",
+    "mspaint": "mspaint",
+    "calc": "calc",
+    "calculator": "calc",
+    "notepad": "notepad",
+    "cmd": "cmd",
+    "terminal": "powershell",
+    "powershell": "powershell",
+    "code": "code",
+    "vscode": "code",
+    "explorer": "explorer",
+    "taskmgr": "taskmgr",
+    "task manager": "taskmgr",
+    "settings": "start ms-settings:"
+}
+
 class SemanticRouter:
     def __init__(self):
         self._math_allowed = set("0123456789.+-*/()%^= ")
@@ -120,9 +137,26 @@ class SemanticRouter:
 
         t_low = t.lower()
 
-        # 1. Hardware & OS controls
-        if t_low in ["mute", "unmute", "volume up", "volume down", "lock", "lock screen", "show desktop", "minimize all"]:
-            return Intent(type="system_control", target=t_low)
+        # 1. Immediate Terminal Execution (> command or $ command)
+        if t.startswith(">") or t.startswith("$"):
+            cmd = t[1:].strip()
+            return Intent(type="shell_exec", target=cmd)
+        if t_low.startswith("shell ") or t_low.startswith("cmd "):
+            cmd = t[5:].strip() if t_low.startswith("cmd ") else t[6:].strip()
+            return Intent(type="shell_exec", target=cmd)
+
+        # 2. TagRush Game QA & Dual Client Playtesting
+        if t_low in ["test tagrush", "tagrush qa", "launch tagrush", "playtest tagrush", "run tagrush"]:
+            return Intent(type="tagrush_qa", target=t)
+
+        # 3. MS Paint Shape Rendering Automation
+        if "paint" in t_low and any(w in t_low for w in ["draw", "rect", "box", "circle", "ellipse", "shape"]):
+            return Intent(type="paint_draw", target=t)
+
+        # 4. Hardware & OS controls
+        if t_low in ["mute", "unmute", "volume up", "volume down", "lock", "lock screen", "show desktop", "minimize all", "task manager", "taskmgr"]:
+            target_key = "taskmgr" if "task" in t_low else t_low
+            return Intent(type="system_control", target=target_key)
 
         if "clean" in t_low and any(w in t_low for w in ["temp", "cache", "disk"]):
             return Intent(type="clean_temp")
@@ -131,30 +165,34 @@ class SemanticRouter:
             mode = "dark" if "dark" in t_low or "obsidian" in t_low else "light"
             return Intent(type="system_control", target=f"theme_{mode}")
 
-        # 2. Instant Math (< 0.01ms)
+        # 5. Instant Math (< 0.01ms)
         math_res = self._eval_math(t)
         if math_res is not None:
             return Intent(type="math_eval", target=math_res, extra={"expression": t})
 
-        # 3. Direct Turbo Platform Navigation
+        # 6. Direct Turbo Platform Navigation
         turbo = self._match_turbo_platform(t)
         if turbo:
             return turbo
 
-        # 4. Multi-Step Physical GUI Sequences
+        # 7. Multi-Step Physical GUI Sequences
         action_verbs = ["click", "type", "press", "scroll", "select", "tap", "drag", "fill"]
         has_action = any(v in t_low for v in action_verbs)
         has_chaining = any(c in t_low for c in [" and then ", " then ", " and click", " and type", " and open"])
         if has_action and (has_chaining or len(t.split()) > 5):
             return Intent(type="autonomous_goal", target=t)
 
-        # 5. App Launches
+        # 8. App Launches
         for prefix in ["open ", "launch ", "start "]:
             if t_low.startswith(prefix):
-                app_target = t[len(prefix):].strip()
-                return Intent(type="app_launch", target=app_target)
+                raw_target = t[len(prefix):].strip()
+                resolved = APP_ALIASES.get(raw_target.lower(), raw_target)
+                return Intent(type="app_launch", target=resolved)
 
-        # 6. Contextual AI Vision & Reasoning
+        if t_low in APP_ALIASES:
+            return Intent(type="app_launch", target=APP_ALIASES[t_low])
+
+        # 9. Contextual AI Vision & Reasoning
         return Intent(type="context_ai", target=t)
 
     def get_preview(self, text: str) -> str:
@@ -164,6 +202,9 @@ class SemanticRouter:
 
         intent = self.route(t)
         mapping = {
+            "shell_exec": "Terminal",
+            "tagrush_qa": "TagRush QA",
+            "paint_draw": "Draw in Paint",
             "turbo_nav": "Navigate",
             "autonomous_goal": "Autopilot",
             "app_launch": f"Launch {intent.target[:14]}",

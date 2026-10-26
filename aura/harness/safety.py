@@ -19,6 +19,7 @@ class SafetyHarness:
         self._callbacks: List[Callable[[], None]] = []
         self._step_budget = 10
         self._current_step = 0
+        self._last_pos = None
 
     def register_abort_callback(self, cb: Callable[[], None]):
         self._callbacks.append(cb)
@@ -33,11 +34,15 @@ class SafetyHarness:
         self._abort_flag = False
         self._step_budget = step_budget
         self._current_step = 0
+        pt = (ctypes.c_long * 2)()
+        user32.GetCursorPos(pt)
+        self._last_pos = (pt[0], pt[1])
         self._is_active = True
 
     def deactivate(self):
         self._is_active = False
         self._abort_flag = False
+        self._last_pos = None
 
     def is_aborted(self) -> bool:
         return self._abort_flag
@@ -70,12 +75,15 @@ class SafetyHarness:
                     self.trigger_abort("Emergency Esc key pressed")
                     time.sleep(0.5)
 
-                # 2. Mouse corner panic check (top-left 5x5 px)
+                # 2. Mouse corner panic check (top-left 5x5 px flicked into)
                 pt = (ctypes.c_long * 2)()
                 user32.GetCursorPos(pt)
+                curr = (pt[0], pt[1])
                 if pt[0] <= 5 and pt[1] <= 5:
-                    self.trigger_abort("Mouse flicked to top-left corner")
-                    time.sleep(0.5)
+                    if self._last_pos and self._last_pos != curr and (self._last_pos[0] > 5 or self._last_pos[1] > 5):
+                        self.trigger_abort("Mouse flicked to top-left corner")
+                        time.sleep(0.5)
+                self._last_pos = curr
 
             time.sleep(0.016)  # 60Hz polling
 

@@ -41,10 +41,22 @@ def test_dwm_aero_glass():
     assert res is False
     print("  [PASS] Aero Glass Engine: Safe parameter validation verified")
 
+def test_screen_dimensions_and_drag():
+    sw, sh = ACTUATION.get_screen_size()
+    assert sw > 0 and sh > 0
+    print(f"  [PASS] Screen Dimension Bounds: {sw}x{sh}")
+
+    # Test drag telemetry callback without crashing
+    trail = []
+    ACTUATION.drag_cursor((sw // 2, sh // 2), (sw // 2 + 10, sh // 2 + 10), duration=0.05, telemetry_cb=lambda x, y: trail.append((x, y)))
+    assert len(trail) > 0
+    print(f"  [PASS] Mouse Drag Physics: {len(trail)} Bezier telemetry samples generated")
+
 if __name__ == "__main__":
     print("Running Actuation, Safety & Glass Harness Tests...")
     test_cursor_telemetry()
     test_safety_watchdog()
     test_stealth_display_affinity()
     test_dwm_aero_glass()
+    test_screen_dimensions_and_drag()
     print("ALL ACTUATION & SAFETY TESTS PASSED [100%]\n")
