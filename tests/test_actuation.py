@@ -1,5 +1,5 @@
 """
-tests/test_actuation.py - Unit Tests for Actuation, Safety Circuit & Stealth Shield
+tests/test_actuation.py - Unit Tests for Actuation, Safety Circuit, Stealth Shield & DWM Glass
 """
 
 import sys
@@ -10,6 +10,7 @@ import time
 from aura.harness.actuation import ACTUATION
 from aura.harness.safety import SAFETY
 from aura.harness.stealth import STEALTH
+from aura.harness.glass import GLASS
 
 def test_cursor_telemetry():
     t0 = time.perf_counter()
@@ -34,9 +35,16 @@ def test_stealth_display_affinity():
     assert res is False
     print("  [PASS] Stealth Shield: Display affinity function safe and valid")
 
+def test_dwm_aero_glass():
+    # Test safe invocation without window
+    res = GLASS.enable_aero_glass(0)
+    assert res is False
+    print("  [PASS] Aero Glass Engine: Safe parameter validation verified")
+
 if __name__ == "__main__":
-    print("Running Actuation & Safety Harness Tests...")
+    print("Running Actuation, Safety & Glass Harness Tests...")
     test_cursor_telemetry()
     test_safety_watchdog()
     test_stealth_display_affinity()
+    test_dwm_aero_glass()
     print("ALL ACTUATION & SAFETY TESTS PASSED [100%]\n")
