@@ -36,10 +36,12 @@ def test_cursor_overlay_and_companion():
     overlay = AuraOverlayWindow()
     assert overlay.companion_enabled is True
 
-    # Test telemetry feed
+    # Test telemetry feed & physical cursor anchor
     overlay.update_telemetry(450.0, 320.0)
     assert len(overlay.trail) > 0
-    print("  [PASS] Cursor Telemetry Feed: Point appended to kinetic wake")
+    assert overlay.curr_x == 450.0 and overlay.curr_y == 320.0
+    assert overlay.trail[-1][0] == 450.0 and overlay.trail[-1][1] == 320.0
+    print("  [PASS] Cursor Telemetry Feed: Point appended to kinetic wake & anchored directly to cursor")
 
     # Test tactical reticle lock
     overlay.lock_target(600.0, 400.0, "Submit Button")

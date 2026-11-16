@@ -71,6 +71,16 @@ def test_new_execution_routes():
     assert i_calc.type == "app_launch" and i_calc.target == "calc"
     print("  [PASS] Alias Route: 'calc' -> app_launch")
 
+    # Spotify Direct Route
+    i_spot = ROUTER.route("spotify")
+    assert i_spot.type == "app_launch" and i_spot.target == "spotify"
+    print("  [PASS] Spotify Direct Route: 'spotify' -> app_launch")
+
+    # Spotify Music Search Route
+    i_music = ROUTER.route("play starboy on spotify")
+    assert i_music.type == "app_launch" and i_music.target == "spotify" and i_music.extra.get("query") == "starboy"
+    print("  [PASS] Spotify Music Search Route: 'play starboy on spotify' -> app_launch ('starboy')")
+
 if __name__ == "__main__":
     print("Running Fast-Path & Semantic Router Tests...")
     test_instant_math()

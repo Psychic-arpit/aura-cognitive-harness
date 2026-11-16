@@ -16,6 +16,7 @@ from aura.harness.actuation import ACTUATION
 from aura.harness.uia import UIA
 from aura.harness.safety import SAFETY
 from aura.harness.perception import PERCEPTION
+from aura.harness.smart_launcher import SMART_LAUNCHER
 
 class AutonomousPlanner:
     def __init__(self, max_steps: int = 8):
@@ -42,8 +43,8 @@ class AutonomousPlanner:
             elif action == "launch_app":
                 app = params.get("app_name", "")
                 log_cb(f"Launching {app}")
-                subprocess.Popen(app, shell=True)
-                return f"Launched {app}."
+                success, msg = SMART_LAUNCHER.launch(app)
+                return msg
 
             elif action == "click_ui":
                 target = params.get("target_description", "")

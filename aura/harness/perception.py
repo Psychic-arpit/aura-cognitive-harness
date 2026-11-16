@@ -82,15 +82,18 @@ class PerceptionHarness:
         except Exception:
             pass
 
-        # Win32 clipboard fallback
+        # Win32 clipboard fallback (64-bit safe pointers)
         CF_UNICODETEXT = 13
         if not user32.OpenClipboard(None):
             return None
         try:
+            user32.GetClipboardData.restype = ctypes.c_void_p
             h_data = user32.GetClipboardData(CF_UNICODETEXT)
             if not h_data:
                 return None
+            kernel32.GlobalLock.argtypes = [ctypes.c_void_p]
             kernel32.GlobalLock.restype = ctypes.c_wchar_p
+            kernel32.GlobalUnlock.argtypes = [ctypes.c_void_p]
             ptr = kernel32.GlobalLock(h_data)
             if ptr:
                 text = str(ptr)

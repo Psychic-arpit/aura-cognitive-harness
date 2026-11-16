@@ -32,6 +32,7 @@ from aura.harness.perception import PERCEPTION
 from aura.harness.actuation import ACTUATION
 from aura.harness.safety import SAFETY
 from aura.harness.stealth import STEALTH, MOD_ALT, MOD_CONTROL
+from aura.harness.smart_launcher import SMART_LAUNCHER
 from aura.agent.router import ROUTER, Intent
 from aura.agent.kernel import KERNEL
 from aura.agent.planner import PLANNER
@@ -104,7 +105,7 @@ class TaskWorker(QObject):
                 self.ai_state.emit("idle")
                 res_msg = f"Autopilot Done: {result}"
 
-            # 5. Fast Terminal Shell Execution (> command)
+            # 5. Fast Terminal Shell Execution (> command) with Auto-API Fallback
             elif it == "shell_exec":
                 cmd = self.intent.target
                 self.progress.emit(f"Running: {cmd[:32]}")
@@ -112,15 +113,50 @@ class TaskWorker(QObject):
                 t0 = time.time()
                 proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15)
                 elapsed = time.time() - t0
-                out = (proc.stdout or proc.stderr or "Executed with zero output.").strip()
-                data = {
-                    "title": f"Terminal: {cmd[:28]}",
-                    "source": "Terminal Execution",
-                    "answer": f"```text\n{out}\n```",
-                    "elapsed": elapsed
-                }
-                self.ai_answer.emit(data)
-                res_msg = f"Terminal exited with code {proc.returncode}"
+                raw_out = (proc.stdout or proc.stderr or "Executed with zero output.").strip()
+
+                # Check if command failed due to unrecognized binary / PATH failure
+                is_unrecognized = proc.returncode != 0 and any(
+                    phrase in raw_out.lower() for phrase in [
+                        "is not recognized",
+                        "not recognized",
+                        "cannot find the path",
+                        "command not found"
+                    ]
+                )
+
+                if is_unrecognized:
+                    # 1. Attempt smart app resolution (e.g. user typed '> spotify')
+                    parts = cmd.strip().split(maxsplit=1)
+                    cmd_app = parts[0].lower()
+                    extra_arg = parts[1] if len(parts) > 1 else ""
+                    success, msg = SMART_LAUNCHER.launch(cmd_app, extra_query=extra_arg)
+                    if success:
+                        data = {
+                            "title": f"Resolved: {cmd_app.title()}",
+                            "source": "Aura Smart Execution",
+                            "answer": f"### {cmd_app.title()} Active\n\n• **Status**: {msg}\n• **Harness**: Resolved natively without CLI failure.",
+                            "elapsed": elapsed
+                        }
+                        self.ai_answer.emit(data)
+                        res_msg = f"{msg} [OK]"
+                    else:
+                        # 2. Seamlessly escalate to Gemini 3.5 Flash API Brain
+                        self.progress.emit("Consulting Aura Brain...")
+                        self.ai_state.emit("thinking")
+                        data = KERNEL.process(cmd)
+                        self.ai_answer.emit(data)
+                        self.ai_state.emit("idle")
+                        res_msg = f"Aura Brain: Executed [OK]"
+                else:
+                    data = {
+                        "title": f"Terminal: {cmd[:28]}",
+                        "source": "Terminal Execution",
+                        "answer": f"```text\n{raw_out}\n```",
+                        "elapsed": elapsed
+                    }
+                    self.ai_answer.emit(data)
+                    res_msg = f"Terminal exited with code {proc.returncode}"
 
             # 6. Git Status / Diff Telemetry (@git)
             elif it == "git_status":
@@ -172,16 +208,35 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 res_msg = "Paint Render Complete [OK]"
 
-            # 9. Native Application Launch
+            # 9. Smart Native Application Launch with Direct API Integration
             elif it == "app_launch":
                 target = self.intent.target
+                extra_q = self.intent.extra.get("query", "") if self.intent.extra else ""
                 self.progress.emit(f"Launching {target}...")
                 cur_x, cur_y = ACTUATION.get_cursor_pos()
                 sw, sh = ACTUATION.get_screen_size()
                 ACTUATION.glide_cursor((cur_x, cur_y), (sw // 2, sh // 2), duration=0.25, telemetry_cb=lambda x, y: self.telemetry.emit(x, y))
                 self.click.emit(sw // 2, sh // 2)
-                subprocess.Popen(target, shell=True)
-                res_msg = f"Launched {target} [OK]"
+
+                # Smart Protocol, Path, Start Menu, or Web Resolution
+                success, msg = SMART_LAUNCHER.launch(target, extra_query=extra_q)
+                if not success:
+                    # Escalates directly to Gemini API so it does the work without errors
+                    self.progress.emit(f"Fulfilling '{target}' via Aura Brain...")
+                    self.ai_state.emit("thinking")
+                    data = KERNEL.process(f"Open or handle {target}")
+                    self.ai_answer.emit(data)
+                    self.ai_state.emit("idle")
+                    res_msg = f"Aura Handled: {target}"
+                else:
+                    data = {
+                        "title": f"Application: {target.title()}",
+                        "source": "Aura Smart Execution",
+                        "answer": f"### {target.title()} Active\n\n• **Status**: {msg}\n• **Harness**: Resolved natively with zero command-line dependency.",
+                        "elapsed": 0.1
+                    }
+                    self.ai_answer.emit(data)
+                    res_msg = f"{msg} [OK]"
 
             # 10. System & Hardware Controls
             elif it == "system_control":

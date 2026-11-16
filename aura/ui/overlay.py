@@ -88,9 +88,11 @@ class AuraOverlayWindow(QWidget):
 
     def update_telemetry(self, x: float, y: float):
         """Called during agent cursor glide trajectory."""
+        self.curr_x = x
+        self.curr_y = y
         self.smooth_x = x
         self.smooth_y = y
-        self.trail.append((x, y, time.time(), 12.0))
+        self.trail.append((x, y, time.time(), 14.0))
 
     def trigger_click(self, x: float, y: float):
         """Spawns concentric luminescent shockwave ripples on click."""
@@ -112,30 +114,33 @@ class AuraOverlayWindow(QWidget):
         self.ai_state = "idle"
 
     def _tick(self):
-        # Sample physical mouse position
+        # Sample physical mouse position directly
         pt = wintypes.POINT()
         if user32.GetCursorPos(ctypes.byref(pt)):
-            self.curr_x = float(pt.x)
-            self.curr_y = float(pt.y)
-
-        # Smooth inertia filter (Laguerre interpolation)
-        dx = self.curr_x - self.smooth_x
-        dy = self.curr_y - self.smooth_y
-        self.velocity = math.hypot(dx, dy)
-        self.smooth_x += dx * 0.45
-        self.smooth_y += dy * 0.45
+            nx = float(pt.x)
+            ny = float(pt.y)
+            dx = nx - self.curr_x
+            dy = ny - self.curr_y
+            inst_v = math.hypot(dx, dy)
+            # Smooth velocity filter for responsive kinetic line-width scaling without spatial lag
+            self.velocity = (self.velocity * 0.6) + (inst_v * 0.4)
+            self.curr_x = nx
+            self.curr_y = ny
+            self.smooth_x = nx
+            self.smooth_y = ny
 
         # Update harmonic phases
         self.breath_phase = (self.breath_phase + 0.05) % (2 * math.pi)
         self.orbit_phase = (self.orbit_phase + 0.14) % (2 * math.pi)
 
         now = time.time()
-        # Record comet wake if moving
-        if self.velocity > 2.0 and self.companion_enabled:
-            self.trail.append((self.smooth_x, self.smooth_y, now, self.velocity))
+        # Record comet wake directly anchored to cursor
+        if self.velocity > 1.2 and self.companion_enabled:
+            if not self.trail or math.hypot(self.curr_x - self.trail[-1][0], self.curr_y - self.trail[-1][1]) >= 2.0:
+                self.trail.append((self.curr_x, self.curr_y, now, self.velocity))
 
-        # Evict old trail points (> 260ms)
-        while self.trail and (now - self.trail[0][2]) > 0.26:
+        # Evict old trail points (> 280ms)
+        while self.trail and (now - self.trail[0][2]) > 0.28:
             self.trail.popleft()
 
         # Update shockwaves
@@ -159,20 +164,25 @@ class AuraOverlayWindow(QWidget):
 
         now = time.time()
 
-        # 1. Kinetic Comet Tail
-        if len(self.trail) > 1 and self.companion_enabled:
+        # 1. Kinetic Comet Tail (Anchored directly to physical cursor with 0 gap)
+        if self.companion_enabled and len(self.trail) > 0:
             pts = list(self.trail)
-            for i in range(len(pts) - 1):
-                x1, y1, t1, v1 = pts[i]
-                x2, y2, t2, v2 = pts[i + 1]
-                age_ratio = 1.0 - min(1.0, (now - t1) / 0.26)
-                alpha = int(140 * (age_ratio ** 1.5))
-                width = 1.5 + (v1 / 20.0) * age_ratio * 3.5
+            # Seamlessly attach the head of the trail to the current physical cursor coordinates
+            if pts[-1][0] != self.curr_x or pts[-1][1] != self.curr_y:
+                pts.append((self.curr_x, self.curr_y, now, max(self.velocity, 6.0)))
 
-                color = QColor(255, 255, 255, alpha)
-                pen = QPen(color, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
-                painter.setPen(pen)
-                painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            if len(pts) >= 2:
+                for i in range(len(pts) - 1):
+                    x1, y1, t1, v1 = pts[i]
+                    x2, y2, t2, v2 = pts[i + 1]
+                    age_ratio = 1.0 - min(1.0, (now - t1) / 0.28)
+                    alpha = int(160 * (age_ratio ** 1.4))
+                    width = 1.8 + (v1 / 18.0) * age_ratio * 4.0
+
+                    color = QColor(255, 255, 255, alpha)
+                    pen = QPen(color, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+                    painter.setPen(pen)
+                    painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
         # 2. Click Shockwave Ripples
         for r in self.click_ripples:
@@ -185,10 +195,10 @@ class AuraOverlayWindow(QWidget):
         # 3. Tactical Target-Lock Reticle & Laser Trace
         if self.target_crosshair:
             tx, ty, label = self.target_crosshair
-            # Thin translucent laser guide beam
+            # Thin translucent laser guide beam anchored directly to cursor
             guide_pen = QPen(QColor(255, 255, 255, 70), 1.0, Qt.PenStyle.DashLine)
             painter.setPen(guide_pen)
-            painter.drawLine(int(self.smooth_x), int(self.smooth_y), int(tx), int(ty))
+            painter.drawLine(int(self.curr_x), int(self.curr_y), int(tx), int(ty))
 
             # Reticle Box with Corner Brackets
             reticle_size = 18.0 * self.target_reticle_scale
@@ -216,10 +226,10 @@ class AuraOverlayWindow(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawEllipse(QRectF(tx - 2, ty - 2, 4, 4))
 
-        # 4. Luminescent Ethereal Cursor Companion Halo
+        # 4. Luminescent Ethereal Cursor Companion Halo (Anchored directly to cursor)
         if self.companion_enabled:
-            cx = self.smooth_x
-            cy = self.smooth_y
+            cx = self.curr_x
+            cy = self.curr_y
 
             # Ambient breathing oscillation
             breath = math.sin(self.breath_phase) * 1.5

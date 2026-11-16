@@ -27,10 +27,21 @@ APP_ALIASES = {
     "powershell": "powershell",
     "code": "code",
     "vscode": "code",
+    "cursor": "cursor",
     "explorer": "explorer",
     "taskmgr": "taskmgr",
     "task manager": "taskmgr",
-    "settings": "start ms-settings:"
+    "settings": "settings",
+    "spotify": "spotify",
+    "discord": "discord",
+    "steam": "steam",
+    "chrome": "chrome",
+    "edge": "edge",
+    "whatsapp": "whatsapp",
+    "telegram": "telegram",
+    "slack": "slack",
+    "obsidian": "obsidian",
+    "notion": "notion"
 }
 
 class SemanticRouter:
@@ -197,7 +208,13 @@ class SemanticRouter:
         if has_action and (has_chaining or len(t.split()) > 5):
             return Intent(type="autonomous_goal", target=t)
 
-        # 8. App Launches
+        # 8. Music & Media Direct Playback (Spotify / YouTube Music)
+        if "spotify" in t_low and ("play " in t_low or "search " in t_low or "song" in t_low or "track" in t_low):
+            clean_q = re.sub(r"\b(?:on|in)?\s*spotify\b", "", t, flags=re.IGNORECASE)
+            clean_q = re.sub(r"^(?:play|search for|search|listen to)\b", "", clean_q.strip(), flags=re.IGNORECASE).strip()
+            return Intent(type="app_launch", target="spotify", extra={"query": clean_q})
+
+        # 9. App Launches
         for prefix in ["open ", "launch ", "start "]:
             if t_low.startswith(prefix):
                 raw_target = t[len(prefix):].strip()
@@ -207,7 +224,7 @@ class SemanticRouter:
         if t_low in APP_ALIASES:
             return Intent(type="app_launch", target=APP_ALIASES[t_low])
 
-        # 9. Contextual AI Vision & Reasoning
+        # 10. Contextual AI Vision & Reasoning
         return Intent(type="context_ai", target=t)
 
     def get_preview(self, text: str) -> str:
