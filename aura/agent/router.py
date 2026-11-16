@@ -179,8 +179,25 @@ class SemanticRouter:
         if "paint" in t_low and any(w in t_low for w in ["draw", "rect", "box", "circle", "ellipse", "shape"]):
             return Intent(type="paint_draw", target=t)
 
-        # 4. Hardware & OS controls
-        if t_low in ["mute", "unmute", "volume up", "volume down", "lock", "lock screen", "show desktop", "minimize all", "task manager", "taskmgr"]:
+        # 4. Hardware Media & OS controls
+        media_play = ["play", "pause", "resume", "playpause", "play/pause"]
+        media_next = ["next", "next track", "next song", "skip"]
+        media_prev = ["prev", "previous", "previous track", "previous song"]
+        media_volup = ["volume up", "vol up", "louder", "volumeup"]
+        media_voldown = ["volume down", "vol down", "quieter", "volumedown"]
+
+        if t_low in media_play:
+            return Intent(type="system_control", target="playpause")
+        if t_low in media_next:
+            return Intent(type="system_control", target="nexttrack")
+        if t_low in media_prev:
+            return Intent(type="system_control", target="prevtrack")
+        if t_low in media_volup:
+            return Intent(type="system_control", target="volumeup")
+        if t_low in media_voldown:
+            return Intent(type="system_control", target="volumedown")
+
+        if t_low in ["mute", "unmute", "lock", "lock screen", "show desktop", "minimize all", "task manager", "taskmgr"]:
             target_key = "taskmgr" if "task" in t_low else t_low
             return Intent(type="system_control", target=target_key)
 

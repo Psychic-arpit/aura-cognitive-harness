@@ -81,6 +81,14 @@ def test_new_execution_routes():
     assert i_music.type == "app_launch" and i_music.target == "spotify" and i_music.extra.get("query") == "starboy"
     print("  [PASS] Spotify Music Search Route: 'play starboy on spotify' -> app_launch ('starboy')")
 
+    # Hardware Media Controls
+    assert ROUTER.route("play").target == "playpause"
+    assert ROUTER.route("next").target == "nexttrack"
+    assert ROUTER.route("prev").target == "prevtrack"
+    assert ROUTER.route("volume up").target == "volumeup"
+    assert ROUTER.route("volume down").target == "volumedown"
+    print("  [PASS] Hardware Media Routes: play, next, prev, volumeup, volumedown verified")
+
 if __name__ == "__main__":
     print("Running Fast-Path & Semantic Router Tests...")
     test_instant_math()

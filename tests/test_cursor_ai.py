@@ -48,10 +48,20 @@ def test_cursor_overlay_and_companion():
     assert overlay.target_crosshair == (600.0, 400.0, "Submit Button")
     print("  [PASS] Tactical Reticle: Target lock coordinates verified")
 
-    # Test shockwave ripple
+    # Test shockwave ripple & stardust particle generation
     overlay.trigger_click(600.0, 400.0)
     assert len(overlay.click_ripples) == 2
-    print("  [PASS] Concentric Shockwave: 2 ripple rings spawned on click")
+    assert len(overlay.particles) >= 6
+    print("  [PASS] Concentric Shockwave: 2 ripple rings & 6 micro-sparks spawned on click")
+
+    # Test Holographic Ghost Co-Pilot
+    overlay.set_ghost_co_pilot(800.0, 450.0, "Test Autopilot Navigation")
+    assert overlay.ghost_enabled is True
+    assert overlay.ghost_x == 800.0 and overlay.ghost_y == 450.0
+    assert overlay.ghost_label == "Test Autopilot Navigation"
+    overlay.clear_ghost_co_pilot()
+    assert overlay.ghost_enabled is False
+    print("  [PASS] Holographic Ghost Co-Pilot: Telemetry vector & HUD state verified")
 
     # Test AI state toggle
     overlay.set_ai_state("thinking")
@@ -72,10 +82,13 @@ def test_inline_cursor_lens():
     assert lens.isVisible()
     print(f"  [PASS] Floating Cursor Lens: Summoned at ({lens.x()}, {lens.y()})")
 
-    # Test inline answer
+    # Test inline answer & action buttons
     lens.show_inline_answer("Inline reasoning stream active.")
     assert lens.resp_box.isVisible()
-    print("  [PASS] Inline Answer Viewport: Displayed cleanly")
+    assert lens.latest_answer_raw == "Inline reasoning stream active."
+    lens._copy_answer_to_clipboard()
+    assert app.clipboard().text() == "Inline reasoning stream active."
+    print("  [PASS] Inline Answer Viewport & 1-Click Clipboard: Verified cleanly")
 
     lens.dismiss_lens()
     assert not lens.isVisible()

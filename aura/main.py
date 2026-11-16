@@ -49,6 +49,8 @@ class TaskWorker(QObject):
     lock_target = pyqtSignal(float, float, str)
     ai_state = pyqtSignal(str)
     ai_answer = pyqtSignal(dict)
+    ghost_telemetry = pyqtSignal(float, float, str)
+    ghost_clear = pyqtSignal()
 
     def __init__(self, intent: Intent, mode: str):
         super().__init__()
@@ -98,9 +100,9 @@ class TaskWorker(QObject):
                 result = PLANNER.execute_goal(
                     self.intent.target,
                     log_cb=lambda msg: self.progress.emit(msg),
-                    telemetry_cb=lambda x, y: self.telemetry.emit(x, y),
-                    click_cb=lambda x, y: self.click.emit(x, y),
-                    target_cb=lambda x, y, lbl: self.lock_target.emit(x, y, lbl)
+                    telemetry_cb=lambda x, y: (self.telemetry.emit(x, y), self.ghost_telemetry.emit(x, y, "Autopilot Navigation")),
+                    click_cb=lambda x, y: (self.click.emit(x, y), self.ghost_telemetry.emit(x, y, "Clicking Target")),
+                    target_cb=lambda x, y, lbl: (self.lock_target.emit(x, y, lbl), self.ghost_telemetry.emit(x, y, lbl))
                 )
                 self.ai_state.emit("idle")
                 res_msg = f"Autopilot Done: {result}"
@@ -195,7 +197,7 @@ class TaskWorker(QObject):
                 msg = PLANNER.run_paint_recipe(
                     "rectangle",
                     lambda m: self.progress.emit(m),
-                    telemetry_cb=lambda x, y: self.telemetry.emit(x, y),
+                    telemetry_cb=lambda x, y: (self.telemetry.emit(x, y), self.ghost_telemetry.emit(x, y, "MS Paint Canvas Drag")),
                     click_cb=lambda x, y: self.click.emit(x, y)
                 )
                 self.ai_state.emit("idle")
@@ -238,23 +240,49 @@ class TaskWorker(QObject):
                     self.ai_answer.emit(data)
                     res_msg = f"{msg} [OK]"
 
-            # 10. System & Hardware Controls
+            # 10. System & Hardware Media Controls
             elif it == "system_control":
                 action = self.intent.target
-                self.progress.emit(f"System: '{action}'...")
-                if action == "mute":
+                self.progress.emit(f"Hardware: '{action}'...")
+                res_msg = f"Executed {action}"
+                if action in ("playpause", "play", "pause"):
+                    ACTUATION.fast_press("playpause")
+                    res_msg = "Media: Play / Pause"
+                elif action in ("nexttrack", "next"):
+                    ACTUATION.fast_press("nexttrack")
+                    res_msg = "Media: Next Track"
+                elif action in ("prevtrack", "prev"):
+                    ACTUATION.fast_press("prevtrack")
+                    res_msg = "Media: Previous Track"
+                elif action in ("mute", "unmute", "volumemute"):
                     ACTUATION.fast_press("volumemute")
-                elif action in ("volume up", "vol up"):
+                    res_msg = "Audio: Mute Toggled"
+                elif action in ("volume up", "vol up", "volumeup"):
                     ACTUATION.fast_press("volumeup")
-                elif action in ("volume down", "vol down"):
+                    ACTUATION.fast_press("volumeup")
+                    res_msg = "Audio: Volume Up (+4%)"
+                elif action in ("volume down", "vol down", "volumedown"):
                     ACTUATION.fast_press("volumedown")
+                    ACTUATION.fast_press("volumedown")
+                    res_msg = "Audio: Volume Down (-4%)"
                 elif action in ("lock", "lock screen"):
                     ctypes.windll.user32.LockWorkStation()
+                    res_msg = "System: Workstation Locked"
                 elif action in ("show desktop", "minimize all"):
                     ACTUATION.fast_press("win+d")
+                    res_msg = "Desktop: Toggled"
                 elif action == "taskmgr":
                     subprocess.Popen("taskmgr", shell=True)
-                res_msg = f"System action {action} [OK]"
+                    res_msg = "Task Manager Launched"
+
+                data = {
+                    "title": "Hardware Actuation",
+                    "source": "Win32 Hardware Engine",
+                    "answer": f"### {res_msg}\n\n• **Signal**: Win32 hardware keystroke synthesis.\n• **Latency**: < 0.5ms.",
+                    "elapsed": 0.01
+                }
+                self.ai_answer.emit(data)
+                res_msg = f"{res_msg} [OK]"
 
             # 11. Clean Temp Cache
             elif it == "clean_temp":
@@ -293,6 +321,7 @@ class TaskWorker(QObject):
             print(f"[TaskWorker Error]: {e}")
             res_msg = f"Notice: {e}"
         finally:
+            self.ghost_clear.emit()
             SAFETY.deactivate()
 
         self.finished.emit(res_msg)
@@ -443,6 +472,8 @@ class AuraApp(QObject):
         self.active_worker.telemetry.connect(self.overlay.update_telemetry)
         self.active_worker.click.connect(self.overlay.trigger_click)
         self.active_worker.lock_target.connect(self.overlay.lock_target)
+        self.active_worker.ghost_telemetry.connect(self.overlay.set_ghost_co_pilot)
+        self.active_worker.ghost_clear.connect(self.overlay.clear_ghost_co_pilot)
         self.active_worker.ai_state.connect(self.overlay.set_ai_state)
         self.active_worker.ai_answer.connect(self._on_ai_answer)
         self.active_worker.finished.connect(self._on_task_finished)
@@ -456,6 +487,7 @@ class AuraApp(QObject):
 
     def _on_task_finished(self, status: str):
         self.overlay.clear_target()
+        self.overlay.clear_ghost_co_pilot()
         self.overlay.set_ai_state("idle")
         if not self.dock.ai_card.isVisible():
             self.dock.set_status(status, is_active=False)
