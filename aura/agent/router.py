@@ -145,7 +145,22 @@ class SemanticRouter:
             cmd = t[5:].strip() if t_low.startswith("cmd ") else t[6:].strip()
             return Intent(type="shell_exec", target=cmd)
 
-        # 2. TagRush Game QA & Dual Client Playtesting
+        # 2. Smart Context Decorators (@screen, @clip, @git, @code)
+        if t.startswith("@"):
+            parts = t[1:].split(" ", 1)
+            decorator = parts[0].lower()
+            subquery = parts[1].strip() if len(parts) > 1 else ""
+
+            if decorator in ("screen", "vision", "see"):
+                return Intent(type="context_ai", target=subquery or "What is on my screen?", extra={"force_visual": True})
+            elif decorator in ("clip", "clipboard", "copy"):
+                return Intent(type="context_ai", target=subquery or "Explain copied text", extra={"force_clipboard": True})
+            elif decorator in ("git", "diff", "repo"):
+                return Intent(type="git_status", target=subquery)
+            elif decorator in ("code", "file"):
+                return Intent(type="context_ai", target=subquery or "Analyze active code", extra={"force_code": True})
+
+        # 3. TagRush Game QA & Dual Client Playtesting
         if t_low in ["test tagrush", "tagrush qa", "launch tagrush", "playtest tagrush", "run tagrush"]:
             return Intent(type="tagrush_qa", target=t)
 

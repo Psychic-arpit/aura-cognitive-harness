@@ -1,6 +1,7 @@
 """
 aura.harness.uia - UI Automation & Target Grounding Harness
 Resolves visual coordinates of buttons, search fields, and controls across Win32, UWP, and Web.
+Supports Multimodal Visual Grounding via Gemini Vision normalized coordinates [ymin, xmin, ymax, xmax].
 """
 
 import re
@@ -15,8 +16,39 @@ class UIAutomationHarness:
         self._screen_w = user32.GetSystemMetrics(0)
         self._screen_h = user32.GetSystemMetrics(1)
 
-    def resolve_target(self, description: str) -> Optional[Tuple[int, int]]:
-        """Resolves target description to screen coordinates (x, y)."""
+    def resolve_visual_grounding(self, description: str, screenshot_bytes: bytes) -> Optional[Tuple[int, int]]:
+        """Uses Gemini spatial vision grounding to detect exact pixel coordinates from a screenshot."""
+        try:
+            from aura.agent.client import CLIENT
+            if not CLIENT.is_configured():
+                return None
+
+            prompt = (
+                f"Locate the UI element or area corresponding to: '{description}'.\n"
+                f"Return ONLY the normalized bounding box coordinates as [ymin, xmin, ymax, xmax] "
+                f"with integer values between 0 and 1000. Example format: [230, 450, 260, 520].\n"
+                f"Do not write any commentary or extra text."
+            )
+            resp = CLIENT.generate(prompt, image_bytes=screenshot_bytes, max_tokens=60)
+            if not resp:
+                return None
+
+            m = re.search(r"\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]", resp)
+            if m:
+                ymin, xmin, ymax, xmax = map(int, m.groups())
+                cx_norm = (xmin + xmax) / 2000.0
+                cy_norm = (ymin + ymax) / 2000.0
+                target_x = int(cx_norm * self._screen_w)
+                target_y = int(cy_norm * self._screen_h)
+
+                if 0 <= target_x <= self._screen_w and 0 <= target_y <= self._screen_h:
+                    return target_x, target_y
+        except Exception as e:
+            pass
+        return None
+
+    def resolve_target(self, description: str, screenshot_bytes: Optional[bytes] = None) -> Optional[Tuple[int, int]]:
+        """Resolves target description to screen coordinates (x, y) with multimodal vision and Win32 fallback."""
         d = description.strip().lower()
 
         # 1. Screen landmark heuristics
@@ -36,7 +68,6 @@ class UIAutomationHarness:
                 rect = (ctypes.c_long * 4)()
                 user32.GetWindowRect(fg, rect)
                 w_left, w_top, w_right, w_bottom = rect
-                # Typically top-center of focused window
                 return (w_left + w_right) // 2, w_top + 80
 
         # 3. Canvas heuristic (e.g. Paint, Photoshop, Godot viewport)
@@ -47,6 +78,12 @@ class UIAutomationHarness:
         found_pos = self._find_child_window_by_text(description)
         if found_pos:
             return found_pos
+
+        # 5. Multimodal visual grounding if image is provided
+        if screenshot_bytes:
+            vision_pos = self.resolve_visual_grounding(description, screenshot_bytes)
+            if vision_pos:
+                return vision_pos
 
         # Default fallback to center of active foreground window
         fg = user32.GetForegroundWindow()

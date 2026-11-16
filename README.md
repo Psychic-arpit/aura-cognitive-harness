@@ -1,4 +1,4 @@
-# AURA: Autonomous Desktop Cognitive Agent & Execution Harness
+# AURA 2.1: Luminescent Cursor AI & Desktop Cognitive Harness
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-cyan.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-00F0FF.svg)](https://www.python.org/)
@@ -6,7 +6,7 @@
 [![Engine: Gemini 3.5 Flash](https://img.shields.io/badge/engine-Gemini%203.5%20Flash-purple.svg)](https://ai.google.dev/)
 [![Stealth: WDA_EXCLUDEFROMCAPTURE](https://img.shields.io/badge/stealth-OBS%20%2F%20Discord%20Invisible-green.svg)](#stream-stealth-architecture)
 
-> **AURA** is an ambient, high-velocity cognitive desktop runtime and execution harness designed for high-performance developers, game engineers, and power users. It fuses an OS-level execution harness with a vision-grounded, multi-step agentic loop.
+> **AURA** is an ambient, high-velocity cognitive desktop co-pilot and execution harness. It combines a 60 FPS **Luminescent Ethereal Cursor Companion**, an inline **Floating Cursor Lens (`Alt+Q`)**, and an OS-level execution harness backed by Google Gemini 3.5 Flash vision grounding.
 
 ---
 
@@ -30,88 +30,85 @@ flowchart TD
         Tier2["Autonomous ReAct Computer-Use\n(Plan -> Act -> Observe -> Verify)"]
     end
 
-    subgraph UI ["Distraction-Free Aero Glass UI"]
-        Dock["Aero Glassmorphic Dock (Frosted Smoke · Specular Bevel)"]
-        Overlay["Ghost Visual Telemetry (Click Ripples & Crosshairs)"]
-        Tray["Windows System Tray Resident"]
+    subgraph UI ["Dual-Mode Luminescent Aero Glass UI"]
+        Lens["Floating Cursor Lens\n(Inline at Mouse Cursor · Alt+Q)"]
+        Dock["Aero Bottom Cyber-Dock\n(System Hub · Alt+C)"]
+        Overlay["Ethereal Glowing Cursor Companion\n(60 FPS Kinetic Comet · Orbiting Beads · Reticle)"]
     end
 
-    User[User Input / Global Hotkey Alt+C] --> Dock
+    User[User Input / Hotkeys Alt+Q / Alt+C] --> Lens
+    User --> Dock
     Sensors --> Router
+    Lens --> Router
     Dock --> Router
     Router -->|Hardware/Nav/Math| Tier0 --> Actuators
+    Router -->|Context Query| Tier1 --> Lens
     Router -->|Context Query| Tier1 --> Dock
     Router -->|Compound Goal| Tier2 --> Actuators
     Actuators --> Safety
     Tier2 --> Sensors
+    Stealth --> Lens
     Stealth --> Dock
     Stealth --> Overlay
+    Actuators -->|Physical Telemetry| Overlay
 ```
 
 ---
 
 ## Key Features
 
-### 1. Minimalist Aero Glassmorphic UI
-A genuine frosted smoke glass dock engineered using native Win32 DWM composition blur (`ACCENT_ENABLE_ACRYLICBLURBEHIND` / Windows 11 `DWMWA_SYSTEMBACKDROP_TYPE` Acrylic):
-* **Distraction-Free**: Zero cartoon emojis, zero robotic greetings, zero telemetry clutter.
-* **Aero Glass Aesthetics**: Translucent smoke glass, specular top edge highlights, and subtle outer rims.
-* **Instant Typewriter Stream**: Smooth 60 FPS text rendering.
+### 1. 🌟 Luminescent Ethereal Cursor Companion (60 FPS)
+* **Fluid Ethereal Aura**: A subtle frosted glass/plasma glow tracks behind the mouse pointer with smooth inertia (Laguerre filter).
+* **Kinetic Comet Wake**: Accelerating the mouse stretches a luminous comet wake with velocity-scaled ribbons.
+* **Orbiting AI State Beads**: When the agent is reasoning or computing, dual luminescent photon beads orbit around the cursor ring.
+* **Tactical Target-Lock Reticle**: Gliding to click UI elements illuminates targets with an animated lock-on bracket `[ ]` and laser guide beam.
+* **Concentric Shockwaves**: Emits frosted glass circular shockwave rings upon physical clicks.
+* **Toggle Companion**: Press **`Alt + T`** to toggle cursor glow on or off anytime.
 
-### 2. Stream & Recording Stealth
-AURA enforces native Win32 `SetWindowDisplayAffinity(hwnd, 0x11)` (`WDA_EXCLUDEFROMCAPTURE`) on both the CyberDock and the transparent telemetry overlay.
-* **100% Invisible** on OBS Studio, Discord Screen Share, Zoom, Microsoft Teams, and screenshot tools.
-* The assistant is rendered strictly on the local monitor's desktop compositing plane without leaking to streams or recordings.
+### 2. 🔍 Floating Cursor Lens (Inline Cursor AI HUD)
+* **Summoned at Cursor (`Alt + Q` / `Ctrl + Shift + Space`)**: Spawns an ultra-compact Aero Glass command palette directly adjacent to your mouse pointer.
+* **Instant Context Awareness**: Automatically identifies the active window, selected code, or terminal output under the cursor.
+* **Quick Actions**: One-click pills for `Explain`, `Fix / Code`, `Click Target`, and `Shell`.
+* **Zero Disruption**: Press **`Esc`** to dismiss and immediately return to your active application.
 
-### 3. Sub-Millisecond Fast-Path Kernel (< 0.05ms)
-Not every desktop instruction needs an LLM. AURA features a zero-regex layered dispatcher:
-* **Instant Math Engine**: Computes expressions and percentages (`what is 15% of 850` $\to$ `127.5`) in `< 0.01ms`.
-* **Platform Turbo Navigators**: Deep-links queries into Instagram (`ISWF video`), LeetCode (`two sum`), GitHub, YouTube, Reddit, and Twitter in `< 0.05ms`.
-* **System Hardware Controls**: Real-time volume, mute, display locking, theme shifting, and workspace configuration.
+### 3. 🎯 Multimodal Visual Grounding via Gemini Vision
+* Solves UI element coordinates directly from live screen captures using normalized bounding box coordinates `[ymin, xmin, ymax, xmax]`.
+* Maps targets onto absolute pixel coordinates and glides the glowing cursor physically to actuate them.
 
-### 4. Grounded Vision & Context Co-Pilot (1.2s Latency)
-* Powered by Google's latest **Gemini 3.5 Flash Lite** with session connection pooling.
-* Ingests live environment context: focused application (`VS Code`, `Terminal`, `Godot`, `Chrome`), active window title, and clipboard stack traces.
-* Triggers automatic screen ROI captures on visual queries (`"explain this error"`, `"what is on my screen"`).
+### 4. ⚡ Context Decorators & Semantic Routing
+* `@screen <query>`: Forces immediate vision reasoning of whatever is on display.
+* `@clip <query>`: Specifically references and explains clipboard text.
+* `@git`: Instantly runs and displays repository status and diff telemetry.
+* `> <command>`: High-speed terminal shell execution directly inside the Aero HUD.
+* `* <math>`: Evaluates arithmetic and percentages in `< 0.05ms`.
 
-### 5. Complete Privacy & AI Anonymization
-All outbound prompts pass through an active PII sanitizer:
-* User paths (`C:\Users\username\...`) are stripped to `~/...`.
-* IP addresses, personal credentials, and API secret tokens are masked prior to transmission.
-
-### 6. Autonomous Multi-Step Computer-Use (ReAct Engine)
-Compound instructions (e.g. `"open chrome, navigate to github and search repo X"`) trigger the autonomous execution loop:
-* Synthesizes hardware mouse glide trajectories using cubic Bézier curves (preventing robotic bot detection).
-* Synthesizes keystrokes via microsecond Win32 `SendInput`.
-* Resolves UI elements via accessibility tree traversal and visual landmarks.
-
-### 7. Hardware-Level Safety Circuit Breakers
-* **`Esc` Panic Switch**: Dedicated 60Hz watchdog thread intercepts `VK_ESCAPE` to kill running autonomous loops in `< 10ms`.
-* **Mouse Corner Flick**: Shaking or moving the cursor to the top-left screen corner instantly trips the circuit breaker.
-* **Action Step Budget**: Prevents infinite loops by terminating tasks if execution exceeds step limits.
+### 5. 🛡️ Stream & Recording Stealth
+* Native Win32 `SetWindowDisplayAffinity(hwnd, 0x11)` (`WDA_EXCLUDEFROMCAPTURE`) on the Dock, Lens, and Overlay.
+* **100% Invisible** on OBS Studio, Discord Screen Share, Zoom, and screenshots.
 
 ---
 
 ## Benchmark & Architectural Comparison
 
-| Dimension | AURA 2.0 | Ghost App | Open Interpreter | Claude Computer Use | Flow Launcher |
+| Dimension | AURA 2.1 | Cursor IDE | Ghost App | Open Interpreter | Claude Computer Use |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Stream / OBS Stealth** | Native (0x11) | Partial | No | No | No |
-| **Aero Glass Interface** | Win32 DWM Acrylic | Solid Overlay | Terminal CLI | API Headless | Solid Qt |
-| **Fast-Path Latency** | **< 0.05ms** | ~200ms | ~500ms | ~1500ms | < 1ms |
-| **Cognitive Latency** | **1.2s - 1.8s** | 2.5s - 5s | 3s - 8s | 3s - 6s | N/A (Search only) |
-| **Computer-Use Actuation** | Win32 SendInput | Custom | PyAutoGUI | API Container | Launch only |
-| **Zero-Keylog Safety** | RegisterHotKey | Hooks | N/A | N/A | Mixed |
-| **PII Anonymization** | Automatic | No | No | No | N/A |
-| **Desktop Form Factor** | Aero Bottom Dock | Floating Overlay | Terminal CLI | API Headless | Center Bar |
+| **Stream / OBS Stealth** | ✅ Native (0x11) | ❌ No | ⚠️ Partial | ❌ No | ❌ No |
+| **Floating Cursor Lens** | ✅ `Alt + Q` (Any app) | ✅ Inside IDE only | ❌ No | ❌ No | ❌ No |
+| **Luminescent Cursor** | ✅ 60 FPS Comet & Aura | ❌ No | ❌ No | ❌ No | ❌ No |
+| **Fast-Path Latency** | **< 0.05ms** | ~200ms | ~200ms | ~500ms | ~1500ms |
+| **Visual Grounding** | ✅ Gemini 3.5 Flash | ❌ N/A | ✅ Custom | ❌ Visionless | ✅ API Container |
+| **Zero-Keylog Safety** | ✅ RegisterHotKey | N/A | ❌ Hooks | ❌ N/A | ❌ N/A |
+| **PII Anonymization** | ✅ Automatic | ❌ No | ❌ No | ❌ No | ❌ No |
 
 ---
 
 ## Quickstart
 
-### Prerequisites
-* Windows 10 or Windows 11 (64-bit)
-* Python 3.10+ (Anaconda / CPython)
+### Hotkeys Quick Reference
+* **`Alt + Q`** or **`Ctrl + Shift + Space`**: Summon Floating Cursor Lens (at mouse cursor)
+* **`Alt + C`** or **`Ctrl + Alt + Space`**: Toggle Bottom Aero Dock
+* **`Alt + T`**: Toggle Luminescent Cursor Companion On/Off
+* **`Esc`**: Emergency Abort / Dismiss HUD
 
 ### 1. Installation
 ```powershell

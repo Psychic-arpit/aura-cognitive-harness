@@ -38,12 +38,15 @@ from aura.agent.planner import PLANNER
 from aura.agent.client import CLIENT
 from aura.ui.dock import CyberDock
 from aura.ui.overlay import AuraOverlayWindow
+from aura.ui.lens import CursorLens
 
 class TaskWorker(QObject):
     progress = pyqtSignal(str)
     finished = pyqtSignal(str)
     telemetry = pyqtSignal(float, float)
     click = pyqtSignal(float, float)
+    lock_target = pyqtSignal(float, float, str)
+    ai_state = pyqtSignal(str)
     ai_answer = pyqtSignal(dict)
 
     def __init__(self, intent: Intent, mode: str):
@@ -61,8 +64,10 @@ class TaskWorker(QObject):
             # 1. Contextual AI & Visual Grounding
             if it == "context_ai":
                 self.progress.emit("Consulting Aura Intelligence...")
-                data = KERNEL.process(self.intent.target)
+                self.ai_state.emit("thinking")
+                data = KERNEL.process(self.intent.target, self.intent.extra)
                 self.ai_answer.emit(data)
+                self.ai_state.emit("idle")
                 res_msg = "Aura Ready [OK]"
 
             # 2. Instant Math (< 0.01ms)
@@ -85,10 +90,18 @@ class TaskWorker(QObject):
                 webbrowser.open(url)
                 res_msg = "Navigated [OK]"
 
-            # 4. Multi-Step Autonomous ReAct Loop
+            # 4. Multi-Step Autonomous ReAct Loop with Visual Grounding & Real Telemetry
             elif it == "autonomous_goal":
                 self.progress.emit(f"Autopilot: '{self.intent.target[:28]}'...")
-                result = PLANNER.execute_goal(self.intent.target, lambda msg: self.progress.emit(msg))
+                self.ai_state.emit("navigating")
+                result = PLANNER.execute_goal(
+                    self.intent.target,
+                    log_cb=lambda msg: self.progress.emit(msg),
+                    telemetry_cb=lambda x, y: self.telemetry.emit(x, y),
+                    click_cb=lambda x, y: self.click.emit(x, y),
+                    target_cb=lambda x, y, lbl: self.lock_target.emit(x, y, lbl)
+                )
+                self.ai_state.emit("idle")
                 res_msg = f"Autopilot Done: {result}"
 
             # 5. Fast Terminal Shell Execution (> command)
@@ -109,7 +122,24 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 res_msg = f"Terminal exited with code {proc.returncode}"
 
-            # 6. TagRush QA & Dual Client Environment
+            # 6. Git Status / Diff Telemetry (@git)
+            elif it == "git_status":
+                self.progress.emit("Inspecting Git Repository...")
+                import time
+                t0 = time.time()
+                proc = subprocess.run("git status --short && git diff --stat", shell=True, capture_output=True, text=True, timeout=8)
+                elapsed = time.time() - t0
+                out = (proc.stdout or proc.stderr or "Clean working directory (no unstaged changes).").strip()
+                data = {
+                    "title": "Git Repository State",
+                    "source": "Git Telemetry",
+                    "answer": f"### Repository State\n\n```text\n{out}\n```",
+                    "elapsed": elapsed
+                }
+                self.ai_answer.emit(data)
+                res_msg = "Git Telemetry [OK]"
+
+            # 7. TagRush QA & Dual Client Environment
             elif it == "tagrush_qa":
                 self.progress.emit("Launching TagRush QA Dual-Client...")
                 msg = PLANNER.run_tagrush_qa(lambda m: self.progress.emit(m))
@@ -122,10 +152,17 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 res_msg = "TagRush QA Ready [OK]"
 
-            # 7. MS Paint Shape Rendering Automation
+            # 8. MS Paint Shape Rendering Automation with Physical Drag Telemetry
             elif it == "paint_draw":
                 self.progress.emit("Rendering Shape in MS Paint...")
-                msg = PLANNER.run_paint_recipe("rectangle", lambda m: self.progress.emit(m))
+                self.ai_state.emit("actuating")
+                msg = PLANNER.run_paint_recipe(
+                    "rectangle",
+                    lambda m: self.progress.emit(m),
+                    telemetry_cb=lambda x, y: self.telemetry.emit(x, y),
+                    click_cb=lambda x, y: self.click.emit(x, y)
+                )
+                self.ai_state.emit("idle")
                 data = {
                     "title": "MS Paint Automation",
                     "source": "Actuation Harness",
@@ -135,7 +172,7 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 res_msg = "Paint Render Complete [OK]"
 
-            # 8. Native Application Launch
+            # 9. Native Application Launch
             elif it == "app_launch":
                 target = self.intent.target
                 self.progress.emit(f"Launching {target}...")
@@ -146,7 +183,7 @@ class TaskWorker(QObject):
                 subprocess.Popen(target, shell=True)
                 res_msg = f"Launched {target} [OK]"
 
-            # 9. System & Hardware Controls
+            # 10. System & Hardware Controls
             elif it == "system_control":
                 action = self.intent.target
                 self.progress.emit(f"System: '{action}'...")
@@ -164,7 +201,7 @@ class TaskWorker(QObject):
                     subprocess.Popen("taskmgr", shell=True)
                 res_msg = f"System action {action} [OK]"
 
-            # 10. Clean Temp Cache
+            # 11. Clean Temp Cache
             elif it == "clean_temp":
                 self.progress.emit("Cleaning temporary cache...")
                 import tempfile
@@ -191,7 +228,7 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 res_msg = f"Cleaned {mb_freed:.1f} MB [OK]"
 
-            # 11. Set API Key
+            # 12. Set API Key
             elif it == "set_api_key":
                 CLIENT.set_key(self.intent.target)
                 self.progress.emit("Gemini AI Brain Unlocked")
@@ -207,6 +244,8 @@ class TaskWorker(QObject):
 
 class AuraApp(QObject):
     sig_toggle_dock = pyqtSignal()
+    sig_summon_lens = pyqtSignal()
+    sig_toggle_companion = pyqtSignal()
     sig_abort_gui = pyqtSignal()
 
     def __init__(self, q_app: QApplication):
@@ -219,22 +258,28 @@ class AuraApp(QObject):
         # 1. Initialize UI Viewports
         self.overlay = AuraOverlayWindow(mode=self.mode)
         self.dock = CyberDock(default_mode=self.mode)
+        self.lens = CursorLens()
 
         # 2. Wire Cross-Thread Signals
         self.sig_toggle_dock.connect(self.dock.toggle_expand, Qt.ConnectionType.QueuedConnection)
+        self.sig_summon_lens.connect(self.lens.summon_at_cursor, Qt.ConnectionType.QueuedConnection)
+        self.sig_toggle_companion.connect(self.overlay.toggle_companion, Qt.ConnectionType.QueuedConnection)
         self.sig_abort_gui.connect(self._on_abort_gui, Qt.ConnectionType.QueuedConnection)
 
         # 3. Wire User Actions
         self.dock.command_submitted.connect(self.on_command)
         self.dock.mode_toggled.connect(self.on_mode_toggled)
+        self.lens.command_submitted.connect(self.on_command)
 
         # 4. Setup Failsafe Watchdog Callback (Esc interrupt)
         SAFETY.register_abort_callback(self._on_abort_from_watchdog)
 
-        # 5. Setup Hotkey Sentinel (Alt+C, Ctrl+Alt+Space, Alt+Space)
-        STEALTH.register_hotkey(MOD_ALT, 0x43, self._on_hotkey_from_sentinel)  # Alt + C
-        STEALTH.register_hotkey(MOD_CONTROL | MOD_ALT, 0x20, self._on_hotkey_from_sentinel)  # Ctrl + Alt + Space
-        STEALTH.register_hotkey(MOD_ALT, 0x20, self._on_hotkey_from_sentinel)  # Alt + Space (if free)
+        # 5. Setup Hotkey Sentinel (Alt+C, Alt+Q, Ctrl+Alt+Space, Alt+T)
+        STEALTH.register_hotkey(MOD_ALT, 0x43, self.sig_toggle_dock.emit)  # Alt + C -> Dock
+        STEALTH.register_hotkey(MOD_ALT, 0x51, self.sig_summon_lens.emit)  # Alt + Q -> Inline Cursor Lens!
+        STEALTH.register_hotkey(MOD_CONTROL | 0x0004, 0x20, self.sig_summon_lens.emit)  # Ctrl + Shift + Space -> Lens
+        STEALTH.register_hotkey(MOD_CONTROL | MOD_ALT, 0x20, self.sig_toggle_dock.emit)  # Ctrl + Alt + Space -> Dock
+        STEALTH.register_hotkey(MOD_ALT, 0x54, self.sig_toggle_companion.emit)  # Alt + T -> Toggle Glowing Cursor
         STEALTH.start_hotkey_sentinel()
 
         # 6. Initialize System Tray
@@ -245,11 +290,11 @@ class AuraApp(QObject):
         self.dock.show()
 
         print("\n" + "=" * 62)
-        print("AURA: AUTONOMOUS DESKTOP AGENT & EXECUTION HARNESS")
-        print("  Placement: Bottom desktop dock (Alt+C / Ctrl+Alt+Space)")
+        print("AURA 2.1: LUMINESCENT CURSOR AI & COGNITIVE EXECUTION HARNESS")
+        print("  Dock Summon: Alt + C / Ctrl + Alt + Space")
+        print("  Cursor Lens: Alt + Q / Ctrl + Shift + Space (Inline at Cursor)")
+        print("  Glowing Companion: Alt + T (Ethereal 60 FPS Cursor Halo)")
         print("  Stealth: 100% Invisible to screen recorders (0x11)")
-        print("  Harness: Hardware SendInput + UIAutomation + Safety Circuit")
-        print("  Agent: Gemini 3.5 Flash Lite + Multi-Step ReAct Planner")
         print("=" * 62 + "\n")
 
     def _init_tray_icon(self):
@@ -263,12 +308,18 @@ class AuraApp(QObject):
         painter.end()
 
         self.tray = QSystemTrayIcon(QIcon(pix), self.q_app)
-        self.tray.setToolTip("AURA Cognitive Harness (Alt+C)")
+        self.tray.setToolTip("AURA Cursor AI (Alt+Q / Alt+C)")
         self.tray.activated.connect(self._on_tray_activated)
 
         menu = QMenu()
-        act_open = menu.addAction("Toggle Aero Dock (Alt+C)")
-        act_open.triggered.connect(self._toggle_assistant)
+        act_lens = menu.addAction("Summon Cursor Lens (Alt+Q)")
+        act_lens.triggered.connect(self.lens.summon_at_cursor)
+
+        act_dock = menu.addAction("Toggle Aero Dock (Alt+C)")
+        act_dock.triggered.connect(self._toggle_assistant)
+
+        act_glow = menu.addAction("Toggle Glowing Cursor (Alt+T)")
+        act_glow.triggered.connect(self.overlay.toggle_companion)
 
         menu.addSeparator()
         act_qa = menu.addAction("TagRush QA Dual Client")
@@ -293,7 +344,7 @@ class AuraApp(QObject):
 
     def _on_tray_activated(self, reason):
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
-            self._toggle_assistant()
+            self.lens.summon_at_cursor()
 
     def _toggle_assistant(self):
         if self.dock.isHidden():
@@ -313,6 +364,7 @@ class AuraApp(QObject):
         self.overlay.clear_overlay()
         self.dock.set_status("Aborted via Esc [STOP]", is_active=False)
         self.dock.collapse_capsule()
+        self.lens.dismiss_lens()
 
     def on_mode_toggled(self, new_mode: str):
         self.mode = new_mode
@@ -335,13 +387,21 @@ class AuraApp(QObject):
         self.active_worker.progress.connect(lambda msg: self.dock.set_status(msg, is_active=True))
         self.active_worker.telemetry.connect(self.overlay.update_telemetry)
         self.active_worker.click.connect(self.overlay.trigger_click)
-        self.active_worker.ai_answer.connect(self.dock.show_ai_answer)
+        self.active_worker.lock_target.connect(self.overlay.lock_target)
+        self.active_worker.ai_state.connect(self.overlay.set_ai_state)
+        self.active_worker.ai_answer.connect(self._on_ai_answer)
         self.active_worker.finished.connect(self._on_task_finished)
 
         self.active_thread.start()
 
+    def _on_ai_answer(self, data: dict):
+        self.dock.show_ai_answer(data)
+        if self.lens.isVisible():
+            self.lens.show_inline_answer(data.get("answer", ""))
+
     def _on_task_finished(self, status: str):
-        self.overlay.clear_overlay()
+        self.overlay.clear_target()
+        self.overlay.set_ai_state("idle")
         if not self.dock.ai_card.isVisible():
             self.dock.set_status(status, is_active=False)
         if self.active_thread:

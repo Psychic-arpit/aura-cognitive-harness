@@ -16,7 +16,7 @@ class OmniKernel:
             "page", "ui", "what is this", "explain this", "help me fix", "read this"
         }
 
-    def process(self, query: str) -> Dict[str, Any]:
+    def process(self, query: str, extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         q = query.strip()
         if not q:
             return {"title": "", "source": "Response", "answer": "Ready for input.", "elapsed": 0.0}
@@ -26,9 +26,13 @@ class OmniKernel:
         fg = ctx["window"]
         clip = ctx["clipboard"]
 
+        extra = extra or {}
+        force_visual = extra.get("force_visual", False)
+        force_clipboard = extra.get("force_clipboard", False)
+
         q_low = q.lower()
         image_bytes: Optional[bytes] = None
-        if any(trig in q_low for trig in self._visual_triggers) or q_low.startswith("explain:"):
+        if force_visual or any(trig in q_low for trig in self._visual_triggers) or q_low.startswith("explain:"):
             image_bytes = PERCEPTION.capture_screen_bytes()
 
         prompt = (

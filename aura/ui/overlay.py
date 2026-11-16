@@ -1,23 +1,52 @@
 """
-aura.ui.overlay - Stream-Invisible Ghost Visual Telemetry Overlay
-Renders real-time subtle glass cursor trails, target lock crosshairs, and click ripples at 60 FPS.
-Passes through all mouse input (WA_TransparentForMouseEvents) and shielded via WDA_EXCLUDEFROMCAPTURE.
+aura.ui.overlay - Luminescent Ethereal Cursor Companion & Ghost Telemetry Overlay
+Renders real-time kinetic comet trails, ambient plasma aura, orbiting AI state beads,
+and tactical target-lock reticles at locked 60 FPS.
+Passes through all mouse input (WA_TransparentForMouseEvents) and shielded via WDA_EXCLUDEFROMCAPTURE (0x11).
 """
 
 import time
+import math
+import ctypes
+from ctypes import wintypes
 from collections import deque
-from PyQt6.QtCore import Qt, QTimer, QRectF
-from PyQt6.QtGui import QPainter, QColor, QPen, QBrush
+from typing import Optional, Tuple, List, Dict, Any
+from PyQt6.QtCore import Qt, QTimer, QRectF, QPointF
+from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QRadialGradient, QLinearGradient
 from PyQt6.QtWidgets import QWidget, QApplication
 from aura.harness.stealth import STEALTH
+
+user32 = ctypes.WinDLL("user32", use_last_error=True)
 
 class AuraOverlayWindow(QWidget):
     def __init__(self, mode: str = "mach"):
         super().__init__()
         self.mode = mode
-        self.trail = deque(maxlen=20)
-        self.click_ripples = []
-        self.target_crosshair = None
+
+        # Cursor Companion State
+        self.companion_enabled = True
+        self.ai_state = "idle"  # 'idle', 'thinking', 'navigating', 'actuating'
+        self.curr_x = 0.0
+        self.curr_y = 0.0
+        self.smooth_x = 0.0
+        self.smooth_y = 0.0
+        self.velocity = 0.0
+        self.breath_phase = 0.0
+        self.orbit_phase = 0.0
+
+        # Telemetry collections
+        self.trail = deque(maxlen=28)
+        self.click_ripples: List[Dict[str, Any]] = []
+        self.target_crosshair: Optional[Tuple[float, float, str]] = None
+        self.target_reticle_scale = 1.0
+
+        # Initialize cursor position
+        pt = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(pt))
+        self.curr_x = float(pt.x)
+        self.curr_y = float(pt.y)
+        self.smooth_x = self.curr_x
+        self.smooth_y = self.curr_y
 
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
@@ -34,6 +63,7 @@ class AuraOverlayWindow(QWidget):
 
         self._apply_stealth()
 
+        # 60 FPS High-precision compositor timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
         self.timer.start(16)
@@ -49,74 +79,186 @@ class AuraOverlayWindow(QWidget):
         super().showEvent(event)
         self._apply_stealth()
 
-    def set_mode(self, mode: str):
-        self.mode = mode
+    def set_ai_state(self, state: str):
+        """Sets agent telemetry state: 'idle', 'thinking', 'navigating', 'actuating'."""
+        self.ai_state = state
+
+    def toggle_companion(self):
+        self.companion_enabled = not self.companion_enabled
 
     def update_telemetry(self, x: float, y: float):
-        self.trail.append((x, y, time.time()))
+        """Called during agent cursor glide trajectory."""
+        self.smooth_x = x
+        self.smooth_y = y
+        self.trail.append((x, y, time.time(), 12.0))
 
     def trigger_click(self, x: float, y: float):
-        self.click_ripples.append({"x": x, "y": y, "radius": 4.0, "alpha": 200})
+        """Spawns concentric luminescent shockwave ripples on click."""
+        self.click_ripples.append({"x": x, "y": y, "radius": 4.0, "alpha": 220, "max_radius": 44})
+        self.click_ripples.append({"x": x, "y": y, "radius": 1.0, "alpha": 180, "max_radius": 28})
 
-    def lock_target(self, x: float, y: float):
-        self.target_crosshair = (x, y)
+    def lock_target(self, x: float, y: float, label: str = ""):
+        """Locks laser reticle onto UI target."""
+        self.target_crosshair = (x, y, label)
+        self.target_reticle_scale = 1.4
+
+    def clear_target(self):
+        self.target_crosshair = None
 
     def clear_overlay(self):
         self.trail.clear()
         self.click_ripples.clear()
         self.target_crosshair = None
+        self.ai_state = "idle"
 
     def _tick(self):
+        # Sample physical mouse position
+        pt = wintypes.POINT()
+        if user32.GetCursorPos(ctypes.byref(pt)):
+            self.curr_x = float(pt.x)
+            self.curr_y = float(pt.y)
+
+        # Smooth inertia filter (Laguerre interpolation)
+        dx = self.curr_x - self.smooth_x
+        dy = self.curr_y - self.smooth_y
+        self.velocity = math.hypot(dx, dy)
+        self.smooth_x += dx * 0.45
+        self.smooth_y += dy * 0.45
+
+        # Update harmonic phases
+        self.breath_phase = (self.breath_phase + 0.05) % (2 * math.pi)
+        self.orbit_phase = (self.orbit_phase + 0.14) % (2 * math.pi)
+
         now = time.time()
-        while self.trail and (now - self.trail[0][2]) > 0.35:
+        # Record comet wake if moving
+        if self.velocity > 2.0 and self.companion_enabled:
+            self.trail.append((self.smooth_x, self.smooth_y, now, self.velocity))
+
+        # Evict old trail points (> 260ms)
+        while self.trail and (now - self.trail[0][2]) > 0.26:
             self.trail.popleft()
 
+        # Update shockwaves
         active_ripples = []
         for r in self.click_ripples:
-            r["radius"] += 3.0
-            r["alpha"] -= 16
-            if r["alpha"] > 0 and r["radius"] < 50:
+            r["radius"] += 2.8
+            r["alpha"] -= 14
+            if r["alpha"] > 0 and r["radius"] < r["max_radius"]:
                 active_ripples.append(r)
         self.click_ripples = active_ripples
 
-        if self.trail or self.click_ripples or self.target_crosshair:
-            self.update()
+        # Smooth reticle scale snap
+        if self.target_reticle_scale > 1.0:
+            self.target_reticle_scale = max(1.0, self.target_reticle_scale - 0.05)
+
+        self.update()
 
     def paintEvent(self, event):
-        if not self.trail and not self.click_ripples and not self.target_crosshair:
-            return
-
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # 1. Subtle frosted white glass trail
-        if len(self.trail) > 1:
+        now = time.time()
+
+        # 1. Kinetic Comet Tail
+        if len(self.trail) > 1 and self.companion_enabled:
             pts = list(self.trail)
             for i in range(len(pts) - 1):
-                x1, y1, _ = pts[i]
-                x2, y2, _ = pts[i + 1]
-                progress = (i + 1) / len(pts)
-                alpha = int(140 * progress)
+                x1, y1, t1, v1 = pts[i]
+                x2, y2, t2, v2 = pts[i + 1]
+                age_ratio = 1.0 - min(1.0, (now - t1) / 0.26)
+                alpha = int(140 * (age_ratio ** 1.5))
+                width = 1.5 + (v1 / 20.0) * age_ratio * 3.5
+
                 color = QColor(255, 255, 255, alpha)
-                pen = QPen(color, 2.0 + progress * 1.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
+                pen = QPen(color, width, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap)
                 painter.setPen(pen)
                 painter.drawLine(int(x1), int(y1), int(x2), int(y2))
 
-        # 2. Subtle frosted glass ripples
+        # 2. Click Shockwave Ripples
         for r in self.click_ripples:
             color = QColor(255, 255, 255, int(r["alpha"]))
-            painter.setPen(QPen(color, 1.5))
+            painter.setPen(QPen(color, 1.6))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             rad = r["radius"]
             painter.drawEllipse(QRectF(r["x"] - rad, r["y"] - rad, rad * 2, rad * 2))
 
-        # 3. Minimalist crosshair
+        # 3. Tactical Target-Lock Reticle & Laser Trace
         if self.target_crosshair:
-            tx, ty = self.target_crosshair
-            pen = QPen(QColor(255, 255, 255, 180), 1.0)
-            painter.setPen(pen)
-            painter.drawEllipse(QRectF(tx - 10, ty - 10, 20, 20))
-            painter.drawLine(int(tx - 14), int(ty), int(tx + 14), int(ty))
-            painter.drawLine(int(tx), int(ty - 14), int(tx), int(ty + 14))
+            tx, ty, label = self.target_crosshair
+            # Thin translucent laser guide beam
+            guide_pen = QPen(QColor(255, 255, 255, 70), 1.0, Qt.PenStyle.DashLine)
+            painter.setPen(guide_pen)
+            painter.drawLine(int(self.smooth_x), int(self.smooth_y), int(tx), int(ty))
+
+            # Reticle Box with Corner Brackets
+            reticle_size = 18.0 * self.target_reticle_scale
+            h_sz = reticle_size / 2.0
+            corner_len = 5.0
+
+            bracket_pen = QPen(QColor(255, 255, 255, 200), 1.6)
+            painter.setPen(bracket_pen)
+
+            # Top-Left [
+            painter.drawLine(int(tx - h_sz), int(ty - h_sz), int(tx - h_sz + corner_len), int(ty - h_sz))
+            painter.drawLine(int(tx - h_sz), int(ty - h_sz), int(tx - h_sz), int(ty - h_sz + corner_len))
+            # Top-Right ]
+            painter.drawLine(int(tx + h_sz), int(ty - h_sz), int(tx + h_sz - corner_len), int(ty - h_sz))
+            painter.drawLine(int(tx + h_sz), int(ty - h_sz), int(tx + h_sz), int(ty - h_sz + corner_len))
+            # Bottom-Left [
+            painter.drawLine(int(tx - h_sz), int(ty + h_sz), int(tx - h_sz + corner_len), int(ty + h_sz))
+            painter.drawLine(int(tx - h_sz), int(ty + h_sz), int(tx - h_sz), int(ty + h_sz - corner_len))
+            # Bottom-Right ]
+            painter.drawLine(int(tx + h_sz), int(ty + h_sz), int(tx + h_sz - corner_len), int(ty + h_sz))
+            painter.drawLine(int(tx + h_sz), int(ty + h_sz), int(tx + h_sz), int(ty + h_sz - corner_len))
+
+            # Target Center Dot
+            painter.setBrush(QBrush(QColor(255, 255, 255, 220)))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(QRectF(tx - 2, ty - 2, 4, 4))
+
+        # 4. Luminescent Ethereal Cursor Companion Halo
+        if self.companion_enabled:
+            cx = self.smooth_x
+            cy = self.smooth_y
+
+            # Ambient breathing oscillation
+            breath = math.sin(self.breath_phase) * 1.5
+            core_rad = 9.0 + breath
+
+            # Outer diffuse glow aura
+            glow_rad = 28.0 + breath * 2.0
+            grad = QRadialGradient(QPointF(cx, cy), glow_rad)
+            grad.setColorAt(0.0, QColor(255, 255, 255, 55))
+            grad.setColorAt(0.4, QColor(255, 255, 255, 22))
+            grad.setColorAt(1.0, QColor(255, 255, 255, 0))
+
+            painter.setBrush(QBrush(grad))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(QRectF(cx - glow_rad, cy - glow_rad, glow_rad * 2, glow_rad * 2))
+
+            # Inner frosted glass halo ring
+            ring_pen = QPen(QColor(255, 255, 255, 140), 1.2)
+            painter.setPen(ring_pen)
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(QRectF(cx - core_rad, cy - core_rad, core_rad * 2, core_rad * 2))
+
+            # Subtle center focus point
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(QColor(255, 255, 255, 190)))
+            painter.drawEllipse(QRectF(cx - 2, cy - 2, 4, 4))
+
+            # 5. Orbiting AI State Beads (active when thinking or actuating)
+            if self.ai_state in ("thinking", "actuating", "navigating"):
+                orbit_rad = 14.0
+                # Bead 1
+                bx1 = cx + math.cos(self.orbit_phase) * orbit_rad
+                by1 = cy + math.sin(self.orbit_phase) * orbit_rad
+                # Bead 2 (Opposite)
+                bx2 = cx + math.cos(self.orbit_phase + math.pi) * orbit_rad
+                by2 = cy + math.sin(self.orbit_phase + math.pi) * orbit_rad
+
+                painter.setBrush(QBrush(QColor(255, 255, 255, 240)))
+                painter.drawEllipse(QRectF(bx1 - 2.0, by1 - 2.0, 4.0, 4.0))
+                painter.drawEllipse(QRectF(bx2 - 2.0, by2 - 2.0, 4.0, 4.0))
 
         painter.end()

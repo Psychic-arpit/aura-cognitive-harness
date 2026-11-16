@@ -21,7 +21,15 @@ class AutonomousPlanner:
     def __init__(self, max_steps: int = 8):
         self.max_steps = max_steps
 
-    def _execute_tool(self, action: str, params: dict, log_cb: Callable[[str], None]) -> str:
+    def _execute_tool(
+        self,
+        action: str,
+        params: dict,
+        log_cb: Callable[[str], None],
+        telemetry_cb: Optional[Callable[[float, float], None]] = None,
+        click_cb: Optional[Callable[[float, float], None]] = None,
+        target_cb: Optional[Callable[[float, float, str], None]] = None
+    ) -> str:
         try:
             if action == "goto_url":
                 url = params.get("url", "")
@@ -40,28 +48,38 @@ class AutonomousPlanner:
             elif action == "click_ui":
                 target = params.get("target_description", "")
                 button = params.get("button", "left")
-                log_cb(f"Clicking {target}")
-                pos = UIA.resolve_target(target)
+                log_cb(f"Locating {target}...")
+
+                shot = PERCEPTION.capture_screen_bytes()
+                pos = UIA.resolve_target(target, screenshot_bytes=shot)
                 if pos:
+                    if target_cb:
+                        target_cb(float(pos[0]), float(pos[1]), target)
                     cur_pos = ACTUATION.get_cursor_pos()
-                    ACTUATION.glide_cursor(cur_pos, pos, duration=0.25)
+                    ACTUATION.glide_cursor(cur_pos, pos, duration=0.32, telemetry_cb=telemetry_cb)
                     ACTUATION.click(button=button)
+                    if click_cb:
+                        click_cb(float(pos[0]), float(pos[1]))
                     return f"Clicked {target} at {pos}."
                 return f"Could not visually resolve {target}."
 
             elif action == "double_click_ui":
                 target = params.get("target_description", "")
                 log_cb(f"Double-clicking {target}")
-                pos = UIA.resolve_target(target)
+                shot = PERCEPTION.capture_screen_bytes()
+                pos = UIA.resolve_target(target, screenshot_bytes=shot)
                 if pos:
+                    if target_cb:
+                        target_cb(float(pos[0]), float(pos[1]), target)
                     cur_pos = ACTUATION.get_cursor_pos()
-                    ACTUATION.glide_cursor(cur_pos, pos, duration=0.25)
+                    ACTUATION.glide_cursor(cur_pos, pos, duration=0.32, telemetry_cb=telemetry_cb)
                     ACTUATION.double_click()
+                    if click_cb:
+                        click_cb(float(pos[0]), float(pos[1]))
                     return f"Double-clicked {target} at {pos}."
                 return f"Could not visually resolve {target}."
 
             elif action == "drag_mouse":
-                # Can accept explicit coordinates or target descriptions
                 fx = params.get("from_x")
                 fy = params.get("from_y")
                 tx = params.get("to_x")
@@ -69,16 +87,22 @@ class AutonomousPlanner:
                 from_target = params.get("from_target")
                 to_target = params.get("to_target")
 
+                shot = PERCEPTION.capture_screen_bytes()
                 if fx is None or fy is None:
-                    p1 = UIA.resolve_target(from_target or "center")
+                    p1 = UIA.resolve_target(from_target or "center", screenshot_bytes=shot)
                     fx, fy = p1 if p1 else (400, 400)
                 if tx is None or ty is None:
-                    p2 = UIA.resolve_target(to_target or "center")
+                    p2 = UIA.resolve_target(to_target or "center", screenshot_bytes=shot)
                     tx, ty = p2 if p2 else (700, 700)
+
+                if target_cb:
+                    target_cb(float(tx), float(ty), "Drag Destination")
 
                 duration = float(params.get("duration", 0.45))
                 log_cb(f"Dragging ({fx}, {fy}) -> ({tx}, {ty})")
-                ACTUATION.drag_cursor((int(fx), int(fy)), (int(tx), int(ty)), duration=duration)
+                ACTUATION.drag_cursor((int(fx), int(fy)), (int(tx), int(ty)), duration=duration, telemetry_cb=telemetry_cb)
+                if click_cb:
+                    click_cb(float(tx), float(ty))
                 return f"Dragged from ({fx}, {fy}) to ({tx}, {ty})."
 
             elif action == "type_text":
@@ -109,7 +133,7 @@ class AutonomousPlanner:
 
             elif action == "mspaint_draw":
                 shape = params.get("shape", "rectangle").lower()
-                return self.run_paint_recipe(shape, log_cb)
+                return self.run_paint_recipe(shape, log_cb, telemetry_cb=telemetry_cb, click_cb=click_cb)
 
             elif action == "tagrush_qa":
                 return self.run_tagrush_qa(log_cb)
@@ -128,7 +152,13 @@ class AutonomousPlanner:
         except Exception as e:
             return f"Notice: {e}"
 
-    def run_paint_recipe(self, shape: str = "rectangle", log_cb: Optional[Callable[[str], None]] = None) -> str:
+    def run_paint_recipe(
+        self,
+        shape: str = "rectangle",
+        log_cb: Optional[Callable[[str], None]] = None,
+        telemetry_cb: Optional[Callable[[float, float], None]] = None,
+        click_cb: Optional[Callable[[float, float], None]] = None
+    ) -> str:
         """Automates launching MS Paint, selecting shape, and dragging canvas."""
         cb = log_cb or (lambda m: None)
         cb("Launching MS Paint...")
@@ -157,7 +187,9 @@ class AutonomousPlanner:
         end_pt = (cx + 160, cy + 120)
 
         cb("Drawing shape on canvas...")
-        ACTUATION.drag_cursor(start_pt, end_pt, duration=0.6)
+        ACTUATION.drag_cursor(start_pt, end_pt, duration=0.6, telemetry_cb=telemetry_cb)
+        if click_cb:
+            click_cb(float(end_pt[0]), float(end_pt[1]))
         return f"Successfully rendered {shape} in MS Paint."
 
     def run_tagrush_qa(self, log_cb: Optional[Callable[[str], None]] = None) -> str:
@@ -230,7 +262,14 @@ class AutonomousPlanner:
 
         return {"thought": "Finished", "action": "finish", "params": {"message": "Executed successfully."}}
 
-    def execute_goal(self, goal: str, log_cb: Callable[[str], None]) -> str:
+    def execute_goal(
+        self,
+        goal: str,
+        log_cb: Callable[[str], None],
+        telemetry_cb: Optional[Callable[[float, float], None]] = None,
+        click_cb: Optional[Callable[[float, float], None]] = None,
+        target_cb: Optional[Callable[[float, float, str], None]] = None
+    ) -> str:
         SAFETY.activate(step_budget=self.max_steps)
         log_cb(f"Running: {goal[:32]}")
 
@@ -248,7 +287,7 @@ class AutonomousPlanner:
                 shape = "circle"
             elif "line" in g_low:
                 shape = "line"
-            res = self.run_paint_recipe(shape, log_cb)
+            res = self.run_paint_recipe(shape, log_cb, telemetry_cb=telemetry_cb, click_cb=click_cb)
             SAFETY.deactivate()
             return res
 
@@ -290,7 +329,14 @@ class AutonomousPlanner:
             if thought:
                 log_cb(thought[:36])
 
-            obs = self._execute_tool(action, params, log_cb)
+            obs = self._execute_tool(
+                action,
+                params,
+                log_cb,
+                telemetry_cb=telemetry_cb,
+                click_cb=click_cb,
+                target_cb=target_cb
+            )
             if obs == "DONE":
                 SAFETY.deactivate()
                 return plan.get("params", {}).get("message", "Task completed.")
