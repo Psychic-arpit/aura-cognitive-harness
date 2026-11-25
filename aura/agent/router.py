@@ -12,7 +12,7 @@ from typing import Optional, Tuple, Dict, Any
 
 @dataclass
 class Intent:
-    type: str  # 'system_control', 'math_eval', 'turbo_nav', 'autonomous_goal', 'app_launch', 'context_ai', 'clean_temp', 'switch_mode'
+    type: str  # 'system_control', 'math_eval', 'turbo_nav', 'autonomous_goal', 'app_launch', 'context_ai', 'clean_temp', 'switch_mode', 'memory_recall'
     target: str = ""
     extra: Optional[Dict[str, Any]] = None
 
@@ -241,7 +241,14 @@ class SemanticRouter:
         if t_low in APP_ALIASES:
             return Intent(type="app_launch", target=APP_ALIASES[t_low])
 
-        # 10. Contextual AI Vision & Reasoning
+        # 10. Memory / recall queries
+        mem_triggers = ["what did i", "last command", "remind me", "do i remember",
+                        "what was", "last time i", "my history", "recent commands",
+                        "what have i", "previously asked", "earlier i"]
+        if any(t_low.startswith(tr) or tr in t_low for tr in mem_triggers):
+            return Intent(type="memory_recall", target=t)
+
+        # 11. Contextual AI Vision & Reasoning
         return Intent(type="context_ai", target=t)
 
     def get_preview(self, text: str) -> str:
@@ -260,6 +267,7 @@ class SemanticRouter:
             "system_control": f"System ({intent.target[:10]})",
             "math_eval": f"= {intent.target}",
             "clean_temp": "Clean Cache",
+            "memory_recall": "Memory",
             "context_ai": "Ask"
         }
         return mapping.get(intent.type, "Run")

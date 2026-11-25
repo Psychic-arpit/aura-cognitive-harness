@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {
+      "q": "test query",
+      "a": "test answer",
+      "t": 1795599247.6426308,
+      "ms": 0.5
+    }
+  ],
+  "clipboard_history": [
+    {
+      "v": "def hello(): pass",
+      "t": 1795599247.6441367
+    }
+  ],
+  "context_events": [],
+  "app_launch_counts": {
+    "code": 1
+  },
+  "preferences": {},
+  "facts": {},
+  "session_start": 1795599247.441917
+}

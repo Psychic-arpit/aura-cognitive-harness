@@ -37,6 +37,8 @@ from aura.agent.router import ROUTER, Intent
 from aura.agent.kernel import KERNEL
 from aura.agent.planner import PLANNER
 from aura.agent.client import CLIENT
+from aura.agent.memory import MEMORY
+from aura.agent.ambient import AMBIENT
 from aura.ui.dock import CyberDock
 from aura.ui.overlay import AuraOverlayWindow
 from aura.ui.lens import CursorLens
@@ -72,6 +74,23 @@ class TaskWorker(QObject):
                 self.ai_answer.emit(data)
                 self.ai_state.emit("idle")
                 res_msg = "Aura Ready [OK]"
+
+            # 1b. Memory Recall
+            elif it == "memory_recall":
+                self.ai_state.emit("thinking")
+                recent = MEMORY.recent_commands(8)
+                if recent:
+                    lines = [f"- {r['q']}" for r in recent[-6:]]
+                    summary = "\n".join(lines)
+                else:
+                    summary = "No prior commands in this session."
+                # Also ask the AI to answer from memory
+                data = KERNEL.process(self.intent.target)
+                # Prepend the raw memory log
+                data["answer"] = f"**Session memory:**\n{summary}\n\n---\n{data['answer']}"
+                self.ai_answer.emit(data)
+                self.ai_state.emit("idle")
+                res_msg = "Memory recalled [OK]"
 
             # 2. Instant Math (< 0.01ms)
             elif it == "math_eval":
@@ -344,6 +363,11 @@ class AuraApp(QObject):
         self.dock = CyberDock(default_mode=self.mode)
         self.lens = CursorLens()
 
+        # Wire ambient intelligence
+        AMBIENT.context_changed.connect(KERNEL.update_world_model)
+        AMBIENT.suggestion.connect(self._on_ambient_suggestion)
+        AMBIENT.start()
+
         # 2. Wire Cross-Thread Signals
         self.sig_toggle_dock.connect(self.dock.toggle_expand, Qt.ConnectionType.QueuedConnection)
         self.sig_summon_lens.connect(self.lens.summon_at_cursor, Qt.ConnectionType.QueuedConnection)
@@ -497,8 +521,16 @@ class AuraApp(QObject):
             self.active_thread = None
             self.active_worker = None
 
+    def _on_ambient_suggestion(self, message: str, action: str):
+        """Proactive ambient bubble — surfaces insight without being asked."""
+        try:
+            self.lens.show_suggestion(message)
+        except Exception:
+            pass
+
     def cleanup(self):
         STEALTH.stop_hotkey_sentinel()
+        AMBIENT.stop()
         if hasattr(self, "tray"):
             self.tray.hide()
 

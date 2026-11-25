@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QApplication, QTextBrowser, QGraphicsDropShadowEffect
 )
 from aura.agent.router import ROUTER
+from aura.agent.memory import MEMORY
 from aura.harness.perception import PERCEPTION
 from aura.harness.actuation import ACTUATION
 from aura.harness.stealth import STEALTH
@@ -132,7 +133,7 @@ class CursorLens(QWidget):
         self.resp_action_layout.setContentsMargins(0, 4, 0, 0)
         self.resp_action_layout.setSpacing(8)
 
-        self.btn_copy = QPushButton("Copy Answer", self.resp_action_row)
+        self.btn_copy = QPushButton("Copy", self.resp_action_row)
         self.btn_copy.setObjectName("LensActionBtn")
         self.btn_copy.clicked.connect(self._copy_answer_to_clipboard)
 
@@ -140,18 +141,23 @@ class CursorLens(QWidget):
         self.btn_type.setObjectName("LensActionBtnPrimary")
         self.btn_type.clicked.connect(self._type_answer_at_cursor)
 
-        self.btn_dismiss_resp = QPushButton("Close", self.resp_action_row)
+        self.btn_new_thread = QPushButton("New Thread", self.resp_action_row)
+        self.btn_new_thread.setObjectName("LensActionBtn")
+        self.btn_new_thread.clicked.connect(self._on_new_thread)
+
+        self.btn_dismiss_resp = QPushButton("✕", self.resp_action_row)
         self.btn_dismiss_resp.setObjectName("LensActionBtn")
         self.btn_dismiss_resp.clicked.connect(self.dismiss_lens)
 
-        self.telemetry_pill = QLabel("60 FPS Compositor • Gemini 3.5 Flash", self.resp_action_row)
+        self.telemetry_pill = QLabel("AURA • Gemini 2.0 Flash", self.resp_action_row)
         self.telemetry_pill.setObjectName("LensTelemetryPill")
 
         self.resp_action_layout.addWidget(self.btn_copy)
         self.resp_action_layout.addWidget(self.btn_type)
-        self.resp_action_layout.addWidget(self.btn_dismiss_resp)
+        self.resp_action_layout.addWidget(self.btn_new_thread)
         self.resp_action_layout.addStretch()
         self.resp_action_layout.addWidget(self.telemetry_pill)
+        self.resp_action_layout.addWidget(self.btn_dismiss_resp)
 
         self.resp_layout.addWidget(self.resp_action_row)
         self.resp_box.hide()
@@ -401,6 +407,30 @@ class CursorLens(QWidget):
         self.activateWindow()
         self.input.clear()
         self.input.setFocus()
+
+
+    def _on_new_thread(self):
+        """Clears AURA conversation history for a fresh thread."""
+        from aura.agent.kernel import KERNEL
+        KERNEL.clear_history()
+        self.resp_box.hide()
+        self.resp_text.clear()
+        self.latest_answer_raw = ""
+        self.resize(460, 85)
+        self.input.clear()
+        self.input.setFocus()
+
+    def show_suggestion(self, message: str):
+        """Shows a proactive ambient suggestion bubble in the lens."""
+        from PyQt6.QtWidgets import QApplication
+        html = "<span style='color: #A78BFA; font-size: 11px; font-style: italic;'>" + message + "</span>"
+        self.resp_box.show()
+        self.resp_text.setHtml(html)
+        self.resize(480, 150)
+        if not self.isVisible():
+            screen = QApplication.primaryScreen().geometry()
+            self.move(screen.width() - 500, screen.height() - 200)
+            self.show()
 
     def dismiss_lens(self):
         self._typewriter_timer.stop()
